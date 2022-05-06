@@ -37,7 +37,7 @@ for frame_i = 1:frame_n
     for phan_label_i = 1:length(phan_label)
         idx = cellfun(@(x)x == phan_label(phan_label_i), label(:, 3), ...
             'UniformOutput', 1);
-        mu_sp(phan == phan_label_i) = mu_sp_table(idx);
+        mu_sp(phan == phan_label(phan_label_i)) = mu_sp_table(idx);
     end
     mu_sp = single(mu_sp);
     

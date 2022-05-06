@@ -58,9 +58,10 @@ for frame_i = 1:frame_n
     load(fname_phan, 'phan');
     
     % Update concentration of contrast agent C_CA
-    C_CA = f_ICG_in_blood*f_b*cp(frame_i);
+    C_CA = f_ICG_in_blood*f_b*cp(frame_i)*1e-3;
     C_CA(strcmp(label(:,1), 'lesn')) = ...
-        f_ICG_in_blood*(1 - f_w(strcmp(label(:,1), 'lesn')))*ctoi(frame_i);
+        f_ICG_in_blood*(1 - f_w(strcmp(label(:,1), 'lesn'))) ...
+        *ctoi(frame_i)*1e-3;
     
     % Assign mu_a to each tissue
     mu_a = zeros(Nx, Ny, Nz);
@@ -68,7 +69,8 @@ for frame_i = 1:frame_n
     for phan_label_i = 1:length(phan_label)
         idx = cellfun(@(x)x == phan_label(phan_label_i), label(:, 3), ...
             'UniformOutput', 1);
-        mu_a(phan == phan_label_i) = mu_a_table(idx) + C_CA(idx)*mu_a_CA;
+        mu_a(phan == phan_label(phan_label_i)) ...
+            = mu_a_table(idx) + C_CA(idx)*mu_a_CA;
     end
     mu_a = single(mu_a);
     
