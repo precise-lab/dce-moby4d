@@ -7,8 +7,13 @@ Nx = 372;
 Ny = 372;
 Nz = 1088;
 
+% Anatomy frames
+anatomy_frame_number = 277;
+
 % Number of frames
-frame_n = 1224; % 72 frames x 17 rotations
+endTime = 17 * 36; %17 rotations and 36 seconds per rotation
+dt      = 0.1; % s
+frame_n = endTime/dt;
 
 % Wavelength
 lamb = 800; % [nm]
@@ -28,7 +33,7 @@ e_icg = e_icg(:, 1); % 65 uM
 load(fullfile('properties', 'func_prop.mat'));
 
 % Load contrast_agent_curve
-load(fullfile('properties', 'contrast_agent_curve.mat'), 'cp', 'ctoi');
+ca, cperf = contrast_agent_curve(endTime, dt);
 
 % Volume fraction of ICG in blood
 f_ICG_in_blood = 50e-6/2e-3;
@@ -47,7 +52,7 @@ for frame_i = 1:frame_n
     fprintf('Assigning mu_a of Frame %d...\n', frame_i);
     
     % Load MOBY phantom with a spherical lesion inserted
-    frame_load_i = mod(frame_i, 10);
+    frame_load_i = mod(frame_i, anatomy_frame_number);
     if frame_load_i == 0
         fname_phan = fullfile('anatomical_structure_body_lesion', ...
             ['moby_1', num2str(frame_load_i), '.mat']);
@@ -58,10 +63,10 @@ for frame_i = 1:frame_n
     load(fname_phan, 'phan');
     
     % Update concentration of contrast agent C_CA
-    C_CA = f_ICG_in_blood*f_b*cp(frame_i)*1e-3;
-    C_CA(strcmp(label(:,1), 'lesn')) = ...
-        f_ICG_in_blood*(1 - f_w(strcmp(label(:,1), 'lesn'))) ...
-        *ctoi(frame_i)*1e-3;
+    C_CA = f_ICG_in_blood*f_b*ca(frame_i)*1e-3;
+    C_CA(strcmp(label(:,1), 'lesn')) =C_CA(strcmp(label(:,1), 'lesn')) + ...
+        f_ICG_in_blood*(1. - f_w(strcmp(label(:,1), 'lesn'))) ...
+        *cperf(frame_i)*1e-3;
     
     % Assign mu_a to each tissue
     mu_a = zeros(Nx, Ny, Nz);
