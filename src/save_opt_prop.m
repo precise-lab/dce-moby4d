@@ -2,8 +2,9 @@
 % Date:     May 3, 2022
 %
 
+function save_opt_prop(prefix)
 % Load label
-load('label.mat');
+load(fullfile(prefix, 'label.mat'));
 
 % Reference wavelength [nm]
 wavelength_ref = zeros(size(label, 1), 1);
@@ -176,4 +177,4 @@ g(strcmp(label(:, 1), 'hrt_bldplLA')) = 0.975;
 g(strcmp(label(:, 1), 'hrt_bldplRA')) = 0.975;
 
 % Save optical properties
-save('opt_prop.mat', 'wavelength_ref', 'mu_s_ref', 'g');
+save(fullfile(prefix,'opt_prop.mat'), 'wavelength_ref', 'mu_s_ref', 'g');

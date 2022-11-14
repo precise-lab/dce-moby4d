@@ -2,6 +2,7 @@
 % Date:     April 25, 2022
 %
 
+function constant_icg(path)
 wavelength = (430:1000)';
 
 % original table: [wavelength, 6.4 μm, 5 μm, 650 μm, 1290 μm]
@@ -199,4 +200,7 @@ set(gca, 'FontSize', 14);
 % plot(e_icg_tb(:, 1), e_icg_tb(:, 5), 'rx'); hold on;
 
 clear e_icg_tb e_icg_wavelength
-save('constant_icg.mat');
+
+save(fullfile(path, 'constant_icg.mat'));
+
+end

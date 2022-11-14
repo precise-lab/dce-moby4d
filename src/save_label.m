@@ -2,6 +2,8 @@
 % Date:     May 3, 2022
 %
 
+function save_label(prefix)
+
 label = cell(147, 3);
 
 % Integer label
@@ -308,4 +310,6 @@ label{146, 2} = 'vertebra_34';
 label{147, 2} = 'vertebra_35';
 
 % Save label
-save('label.mat', 'label');
+save(fullfile(prefix, 'label.mat'), 'label');
+
+end

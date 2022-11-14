@@ -2,8 +2,9 @@
 % Date:     May 3, 2022
 %
 
+function save_func_prop(prefix)
 % Load label
-load('label.mat');
+load(fullfile(prefix, 'label.mat'));
 
 % Normal hemoglobin mass concentration ranges of mice
 mc_hb = 150; % [g/L]
@@ -181,4 +182,6 @@ f_w(strcmp(label(:, 1), 'marrow')) = 0.3;
 f_w(strcmp(label(:, 1), 'spine')) = 0.3;
 
 % Save functional properties
-save('func_prop.mat', 'c_thb_b', 's', 'f_b', 'f_w');
+save(fullfile(prefix, 'func_prop.mat'), 'c_thb_b', 's', 'f_b', 'f_w');
+
+end
