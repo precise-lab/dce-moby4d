@@ -8,7 +8,7 @@
 %endTime = 17*36; %s
 %dt      = 0.1;    %s
 
-function [ca, c_perf] = contrast_agent_curve(startTime, endTime, dt)
+function [ca, c_perf, t] = contrast_agent_curve(startTime, endTime, dt)
 % Injection time is at t=0.
 A = 0.6;    % mM
 B = 0.18/60.;   % s^(-1)
@@ -22,11 +22,17 @@ Ktrans  = 0.25;     % s^(-1)
 kep     = 0.625;     % s^(-1)
 
 
-t = startTime:dt:endTime;
+t = 0:dt:endTime;
 % Input arterial function
-ca = A*t.*exp(-B*t) + C*(1 - exp(-D*t)).*exp(-E*t);
-ca(t<0) = 0;
+ca_tp = A*t.*exp(-B*t) + C*(1 - exp(-D*t)).*exp(-E*t);
 % Perfusion
-c_perf = Ktrans*conv( exp(-kep*t), ca);
+c_perf_tp = Ktrans*conv( exp(-kep*t), ca_tp)*dt;
+c_perf_tp = c_perf_tp(1:numel(t));
+
+t = [startTime:dt:endTime];
+ca = zeros(size(t));
+ca(t>=0.) = ca_tp;
+c_perf = zeros(size(t));
+c_perf(t>=0.) = c_perf_tp;
 
 end

@@ -112,11 +112,13 @@ while ~feof(f)                          % and read until it ends
     end
 end
 fclose(f);
-return;
+end
+
 function res = CleanValue(s)
-res = strtrim(s);
+r = split(s, '#');
+res = strtrim(r{1});
 if strcmpi(res(1),'=')
     res(1)=[];
 end
 res = strtrim(res);
-return;
+end

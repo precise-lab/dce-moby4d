@@ -1,4 +1,4 @@
-function label_map = get_label_map(moby_anatomy_prefix, moby_lesion_prefix, frame_i)
+function label_map = get_label_map(moby_anatomy_prefix, moby_lesion_prefix, N, frame_i)
 
     % Load MOBY phantom and spherical lesion phantom
     fname_body = fullfile(moby_anatomy_prefix, ...
@@ -11,6 +11,6 @@ function label_map = get_label_map(moby_anatomy_prefix, moby_lesion_prefix, fram
     
     % Insert the spherical lesion into the phantom
     phan(lesn ~= 0) = lesn(lesn ~= 0);
-    label_map = reshape(phan, [Nx, Ny, Nz]);
+    label_map = reshape(phan, N);
 end
 

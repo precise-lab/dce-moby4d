@@ -21,6 +21,7 @@ s(~strcmp(label(:, 1), '')) = 0.95;
 
 % Volume fraction of blood
 f_b = zeros(size(label, 1), 1);
+f_b(strcmp(label(:, 1), 'background')) = 0.;
 f_b(strcmp(label(:, 1), 'body')) = 0.0337;
 f_b(strcmp(label(:, 1), 'skin')) = 0.0337;
 f_b(strcmp(label(:, 1), 'thyroid')) = 0.044;
@@ -102,6 +103,7 @@ f_b(strcmp(label(:, 1), 'spine')) = 0.0247;
 
 % Volume fraction of water
 f_w = zeros(size(label, 1), 1);
+f_w(strcmp(label(:, 1), 'background')) = 1.;
 f_w(strcmp(label(:, 1), 'body')) = 0.6;
 f_w(strcmp(label(:, 1), 'skin')) = 0.6;
 f_w(strcmp(label(:, 1), 'thyroid')) = 0.4;

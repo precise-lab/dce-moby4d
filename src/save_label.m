@@ -12,7 +12,7 @@ for lbl_i = 1:147
 end
 
 % Tissue type of MOBY
-label{1, 1} = '';
+label{1, 1} = 'background';
 label{2, 1} = 'body';
 label{3, 1} = 'skin';
 label{4, 1} = 'thyroid';

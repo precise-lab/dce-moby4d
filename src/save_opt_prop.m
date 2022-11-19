@@ -8,6 +8,7 @@ load(fullfile(prefix, 'label.mat'));
 
 % Reference wavelength [nm]
 wavelength_ref = zeros(size(label, 1), 1);
+wavelength_ref(strcmp(label(:, 1), 'background')) = 700;
 wavelength_ref(strcmp(label(:, 1), 'body')) = 830;
 wavelength_ref(strcmp(label(:, 1), 'skin')) = 830;
 wavelength_ref(strcmp(label(:, 1), 'thyroid')) = 830;
@@ -89,6 +90,7 @@ wavelength_ref(strcmp(label(:, 1), 'spine')) = 830;
 
 % Reference scattering coefficient [1/mm]
 mu_s_ref = zeros(size(label, 1), 1);
+mu_s_ref(strcmp(label(:, 1), 'background')) = 7e-6;
 mu_s_ref(strcmp(label(:, 1), 'body')) = 6.6;
 mu_s_ref(strcmp(label(:, 1), 'skin')) = 6.6;
 mu_s_ref(strcmp(label(:, 1), 'thyroid')) = 8.9;
