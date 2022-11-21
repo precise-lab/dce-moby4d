@@ -46,22 +46,38 @@ lamb = 800; % [nm]
 
 [ca, c_perf, t] = contrast_agent_curve(startTime, endTime, dt);
 
+
 % plot and save the CA curve
-figure; plot(t, ca, 'r', 'LineWidth', 3); hold on;
-plot(t, c_perf, 'b--', 'LineWidth', 3); hold on;
+%figure; plot(t, ca, 'r', 'LineWidth', 3); hold on;
+%plot(t, c_perf, 'b--', 'LineWidth', 3); hold on;
 %ylim([0, 2.2]);
-ylabel('Concentration (mM)');
-xlabel('Time (s)');
-legend({'C_a(t)', 'C_{perf}(t)'});
-set(gca, 'FontSize', 24);
+%ylabel('Concentration (mM)');
+%xlabel('Time (s)');
+%legend({'C_a(t)', 'C_{perf}(t)'});
+%set(gca, 'FontSize', 24);
 
 save(fullfile(output_prefix, 'contrast_agent_curve.mat'), 'ca', 'c_perf', 't' );
 
 properties = load_properties(prop_prefix, f_ICG_in_blood);
 
-elapsed_time = 0;
+fid = fopen(fullfile(output_prefix,'config.ini'),'w');
+fprintf(fid, '[path]\n')
+fprintf(fid, 'root_folder = %s\n', output_prefix);
+fprintf(fid, 'fname_template= moby{0:06d}\n');
+fprintf(fid, '[grid]\n')
+fprintf(fid, 'frame_n = %d\n', frame_n);
+fprintf(fid, 'anatomy_frame_n = %d\n', anatomy_frame_n);
+fprintf(fid, 'voxel_size_x = %f\n', dx);
+fprintf(fid, 'voxel_size_y = %f\n', dy);
+fprintf(fid, 'voxel_size_z = %f\n', dz);
+fprintf(fid, 'frame_rate = %f\n', dt);
+fclose(fid)
 
-for i_frame=1:frame_n
+
+elapsed_time = 0;
+start_f = 5100;
+for i_frame=start_f:frame_n
+    %tic;
     fprintf('Frame %d of %d. Time %f\n', i_frame, frame_n, startTime+i_frame*dt);
 
     i_anatomy_frame = mod(i_frame-1, anatomy_frame_n)+1;
@@ -79,8 +95,8 @@ for i_frame=1:frame_n
 
     save(fname, 'label_map', 'mu_a', 'mu_sp');
 
-    elapsed_time = elapsed_time +toc;
-    fprintf('Expected completion in %f minutes\n', (frame_n/i_frame -1)*elapsed_time/60.)
+    %elapsed_time = elapsed_time +toc;
+    %fprintf('Expected completion in %f minutes\n', (frame_n/i_frame -1)*elapsed_time/60.)
 
 end
 
