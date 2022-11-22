@@ -11,6 +11,7 @@ Created on May 23, 2019
 import dolfin as dl
 import numpy as np
 
+import json
 import argparse
 import configparser
 import scipy.io as sio
@@ -24,25 +25,23 @@ import os
 
 
 
-def generate_mesh(data, h):
+def generate_mesh(data, args):
     
-
+    h = [args['voxel_size_x'], args['voxel_size_y'], args['voxel_size_z']]
     dd = data.astype(dtype=np.uint16)
 
     cell_sizes_map = {}
-    cell_sizes_map['default'] = 0.5
+    cell_sizes_map['default'] = .5 #mm
+    cell_sizes_map[args['spleen_label']+1] = 0.25 #mm
+    cell_sizes_map[args['lesion_label']+1] = 0.25 #mm
         
     
 
     mesh = pygalmesh.generate_from_array(dd, h, max_cell_circumradius=cell_sizes_map,
-                                         max_facet_distance=.5*h[0], verbose=True)
+                                         max_facet_distance=.5*h[0], verbose=args['verbose'])
 
     
     dd_unique = np.unique(dd[:]).astype(np.uint32)
-    #try:
-    #    mesh.remove_lower_dimensional_cells()
-    #except:
-    #    mesh.prune()
     cells = mesh.get_cells_type('tetra')
     old_labels = mesh.get_cell_data("medit:ref", 'tetra')
     labels = dd_unique[old_labels]
@@ -75,7 +74,15 @@ def generate_unstructured_mesh(args, index):
 
     data = phantom[args['label_map']]
     geo_dim = len(data.shape)
-    h = [args['voxel_size_x'], args['voxel_size_y'], args['voxel_size_z']]
+
+    default_label = args['intestin_label'][0]
+    for l in args['intestin_label']:
+        data[data==l] = default_label
+
+    default_label = args['brain_label'][0]
+    for l in range(default_label, args['brain_label'][1]+1):
+        data[data==l] = default_label
+    
     
     Nx = data.shape[0]
     Ny = data.shape[1]
@@ -96,7 +103,7 @@ def generate_unstructured_mesh(args, index):
     data = data+1
      
     start = timer()
-    mesh, c_labels = generate_mesh(data, h)
+    mesh, c_labels = generate_mesh(data, args)
     end = timer()
     print('Generate Mesh: Elapsed time: {}'.format(end-start))
     
@@ -111,36 +118,43 @@ def generate_unstructured_mesh(args, index):
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Generate unstructured mesh', fromfile_prefix_chars='@')
     parser.add_argument('--config',
-                        default='/workspace/shared_data/DCE-MOBY4D/output1/config.ini',
+                        default='/workspace/shared_data/DCE-MOBY4D/vit_z1_r3/config.ini',
                         type=str,
                         help = "Configuration filename")
+    parser.add_argument('--start_frame',
+                        default=1,
+                        type=int,
+                        help = "First frame to be meshed")
+    parser.add_argument('--last_frame',
+                        default=-1,
+                        type=int,
+                        help = "Last frame to be meshed")
+    parser.add_argument('-v', '--verbose',
+                        action='store_true',
+                        help = "Activate verbose output of pygalmesh")
 
     cl_args = parser.parse_args()
 
     config = configparser.ConfigParser()
     config.read(cl_args.config)
 
-    #root_folder = /workspace/shared_data/DCE-MOBY4D/output1
-    #fname_template= moby{0:06d}
-    #frame_n = 13680
-    #anatomy_frame_n = 287
-    #voxel_size_x = 0.150000
-    #voxel_size_y = 0.150000
-    #voxel_size_z = 0.150000
-    #frame_rate = 0.050000
-
     args = {}
-    args['input']=os.path.join(config.get('path', 'root_folder'), config.get('path','fname_template'))
-    args['output']=os.path.join(config.get('path','root_folder'), '../mesh', config.get('path','fname_template'))
+    args['input']=os.path.join(config.get('path', 'root_folder'), 'phantom', config.get('path','fname_template'))
+    args['output']=os.path.join(config.get('path','root_folder'), 'mesh', config.get('path','fname_template'))
     args['label_map'] = 'label_map'
     args['voxel_size_x'] = config.getfloat('grid','voxel_size_x')
     args['voxel_size_y'] = config.getfloat('grid','voxel_size_y')
     args['voxel_size_z'] = config.getfloat('grid','voxel_size_z')
     args['n_frames'] = config.getint('grid','anatomy_frame_n')
+    args['spleen_label'] = config.getint('labels','spleen')
+    args['lesion_label'] = config.getint('labels','lesion')
+    args['intestin_label'] = json.loads(config.get('labels','intestin'))
+    args['brain_label'] = json.loads(config.get('labels','brain'))
     
-    
-    for index in range(args['n_frames']):
-        args['name'] = args['input'].format(index+1)
-        args['out_name'] = args['output'].format(index+1)
+    last_frame = cl_args.last_frame if (cl_args.last_frame > 0) else args['n_frames'] 
+    for index in range(cl_args.start_frame, last_frame+1):
+        args['name'] = args['input'].format(index)
+        args['out_name'] = args['output'].format(index)
+        args['verbose'] = cl_args.verbose
         print(args['name'])
         generate_unstructured_mesh(args, index)

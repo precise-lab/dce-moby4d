@@ -3,10 +3,16 @@ clear all;
 
 addpath("./src");
 
+root_prefix = '/workspace/shared_data/DCE-MOBY4D/vit_z1_r3';
 prop_prefix  = 'properties';
-moby_anatomy_prefix = '/workspace/shared_data/DCE-MOBY4D/anatomical_structure_body_vessel_flag_0';
-moby_lesion_prefix  = '/workspace/shared_data/DCE-MOBY4D/anatomical_structure_lesion_z1_r1';
-output_prefix = '/workspace/shared_data/DCE-MOBY4D/output1';
+moby_anatomy_prefix = fullfile(root_prefix, '../anatomical_structure_body_vessel_flag_0');
+moby_lesion_prefix  = fullfile(root_prefix, '../anatomical_structure_lesion_z1_r3');
+output_prefix = fullfile(root_prefix, 'phantom');
+
+if(~exist(root_prefix, 'dir'))
+    disp(['mkdir ', root_prefix]);
+    mkdir(root_prefix);
+end
 
 if(~exist(output_prefix, 'dir'))
     disp(['mkdir ', output_prefix]);
@@ -60,25 +66,28 @@ save(fullfile(output_prefix, 'contrast_agent_curve.mat'), 'ca', 'c_perf', 't' );
 
 properties = load_properties(prop_prefix, f_ICG_in_blood);
 
-fid = fopen(fullfile(output_prefix,'config.ini'),'w');
-fprintf(fid, '[path]\n')
-fprintf(fid, 'root_folder = %s\n', output_prefix);
-fprintf(fid, 'fname_template= moby{0:06d}\n');
-fprintf(fid, '[grid]\n')
+fid = fopen(fullfile(root_prefix,'config.ini'),'w');
+fprintf(fid, '[path]\n');
+fprintf(fid, 'root_folder = %s\n', root_prefix);
+fprintf(fid, 'fname_template = moby{0:06d}\n');
+fprintf(fid, '[grid]\n');
 fprintf(fid, 'frame_n = %d\n', frame_n);
 fprintf(fid, 'anatomy_frame_n = %d\n', anatomy_frame_n);
 fprintf(fid, 'voxel_size_x = %f\n', dx);
 fprintf(fid, 'voxel_size_y = %f\n', dy);
 fprintf(fid, 'voxel_size_z = %f\n', dz);
 fprintf(fid, 'frame_rate = %f\n', dt);
-fclose(fid)
+fprintf(fid, '[labels]\n');
+fprintf(fid, 'spleen = %d\n', 37);
+fprintf(fid, 'lesion = %d\n', 9);
+fprintf(fid, 'intestin = [%d, %d, %d, %d]\n', 38, 39, 41, 42);
+fprintf(fid, 'brain = [%d, %d]\n', 43, 81);
+fclose(fid);
 
+start_f = 1;
+fid = fopen(fullfile(root_prefix,'mu_a_trace'),'w');
 
-elapsed_time = 0;
-start_f = 5100;
 for i_frame=start_f:frame_n
-    %tic;
-    fprintf('Frame %d of %d. Time %f\n', i_frame, frame_n, startTime+i_frame*dt);
 
     i_anatomy_frame = mod(i_frame-1, anatomy_frame_n)+1;
     label_map = get_label_map(moby_anatomy_prefix, moby_lesion_prefix, [Nx, Ny, Nz], i_anatomy_frame);
@@ -95,8 +104,15 @@ for i_frame=start_f:frame_n
 
     save(fname, 'label_map', 'mu_a', 'mu_sp');
 
-    %elapsed_time = elapsed_time +toc;
-    %fprintf('Expected completion in %f minutes\n', (frame_n/i_frame -1)*elapsed_time/60.)
+    lesion_volume = sum(label_map==9, 'all')*dx*dy*dz;
+    lesion_mu_a = sum(mu_a(label_map==9), 'all')/sum(label_map==9, 'all');
+    spleen_volume = sum(label_map==37, 'all')*dx*dy*dz;
+    spleen_mu_a = sum(mu_a(label_map==37), 'all')/sum(label_map==37, 'all');
+    fprintf(fid, '%06d %1.5e %1.5e %1.5e %1.5e\n', i_frame, lesion_mu_a, ...
+                                spleen_mu_a, lesion_volume, spleen_volume);
+
+    fprintf('%06d %1.5e %1.5e %1.5e %1.5e\n', i_frame, lesion_mu_a, ...
+                                spleen_mu_a, lesion_volume, spleen_volume);
 
 end
 
