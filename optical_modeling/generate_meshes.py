@@ -38,7 +38,7 @@ def generate_mesh(data, args):
     
 
     mesh = pygalmesh.generate_from_array(dd, h, max_cell_circumradius=cell_sizes_map,
-                                         max_facet_distance=.5*h[0], verbose=args['verbose'])
+                                         max_facet_distance=h[0], verbose=args['verbose'])
 
     
     dd_unique = np.unique(dd[:]).astype(np.uint32)
@@ -132,6 +132,9 @@ if __name__=='__main__':
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help = "Activate verbose output of pygalmesh")
+    parser.add_argument('-s', '--skip',
+                        action='store_false',
+                        help = "Skip if file exists")
 
     cl_args = parser.parse_args()
 
@@ -157,4 +160,7 @@ if __name__=='__main__':
         args['out_name'] = args['output'].format(index)
         args['verbose'] = cl_args.verbose
         print(args['name'])
-        generate_unstructured_mesh(args, index)
+        if os.path.isfile(args['out_name']+'.xdmf') and cl_args.skip:
+            print("Skipping", args['out_name'])
+        else:
+            generate_unstructured_mesh(args, index)
