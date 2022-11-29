@@ -38,11 +38,7 @@ def convert_to_cartesian_parallel(comm, p0, N, args):
     points = np.hstack([np.reshape(xyz, (xyz.size,1)) for xyz in [XX,YY,ZZ] ])
 
     Vh = p0.function_space()
-    tic = timer()
     B = hp.assemblePointwiseObservation(Vh, points)
-    toc = timer()
-    if rank==0:
-        print("Assemble B took {0:2.1f} seconds\n".format(toc-tic))
 
     p0_np = (B*p0.vector()).gather_on_zero()
 
@@ -182,18 +178,23 @@ if __name__=='__main__':
     rank  = comm.rank
     nproc = comm.size
 
+    dl.set_log_active(False)
+
     if rank == 0:
         f = open('average_signal_{0}_{1}.txt'.format(nstart, nend), 'w')
-
-    
+        
+    if rank == 0:
+        print("index lesion spleen time\n") 
     for index in range(nstart, nend, 1):
         args['mesh_name'] = args['mesh'].format( index% args['n_anatomy_frames'] +1)
         args['properties_name'] = args['properties'].format(index+1)
         args['fluence_name'] = args['fluence'].format(index+1)
         args['p0_name'] = args['p0'].format(index+1)
+        tic = timer()
         lesion_signal, liver_signal, lesion_volume, liver_volume =  compute_frame(comm, args)
+        toc = timer()
         if rank == 0:
             f.write("{0:4d} {1:1.5e} {2:1.5e} {3:1.5e} {4:1.5e}\n".format(
                 index, lesion_signal, liver_signal, lesion_volume, liver_volume))
             f.flush()
-            print("{0:4d} {1:1.5e} {2:1.5e}".format(index, lesion_signal, liver_signal))
+            print("{0:4d} {1:1.5e} {2:1.5e} {3:1.5e}".format(index, lesion_signal, liver_signal, toc-tic))

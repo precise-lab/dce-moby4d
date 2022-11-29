@@ -63,6 +63,9 @@ mpirun -n 16 pythonoptical_modeling/generate_dynamic_p0.py --config <PATH_TO_CON
 
 ```bash
 conda create -n fenics-2019.1 -c conda-forge fenics==2019.1.0 matplotlib scipy jupyter h5py hdf5storage meshio==5.3.4 pygalmesh==0.10.7 cgal
+conda env config vars set OPENBLAS_NUM_THREADS=1 -n fenics-2019.1
+conda env config vars set OPENMP_NUM_THREADS=1 -n fenics-2019.1
+conda env config vars set OMP_NUM_THREADS=1 -n fenics-2019.1
 ```
 
 > Note: pygalmesh is bugged. See PR: https://github.com/meshpro/pygalmesh/pull/204
