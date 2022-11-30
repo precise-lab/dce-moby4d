@@ -28,10 +28,14 @@ def convert_to_cartesian_parallel(comm, p0, N, args):
 
     rank  = comm.rank
 
+    h = np.array([args['voxel_size_x'], args['voxel_size_y'], args['voxel_size_z']])
+    z_fov = args['z_fov']
+
     Nx, Ny, Nz = N
-    xi = np.linspace(.5, (Nx-.5), Nx)*args['voxel_size_x']
-    yi = np.linspace(.5, (Ny-.5), Ny)*args['voxel_size_y']
-    zi = np.linspace(.5, (Nz-.5), Nz)*args['voxel_size_z']
+    xi = np.linspace(.5, (Nx-.5), Nx)*h[0]
+    yi = np.linspace(.5, (Ny-.5), Ny)*h[1]
+    zi = np.arange(z_fov[0]+.5*h[2], z_fov[1], h[2])
+
 
     XX, YY, ZZ = np.meshgrid(xi, yi, zi)
 
@@ -43,7 +47,8 @@ def convert_to_cartesian_parallel(comm, p0, N, args):
     p0_np = (B*p0.vector()).gather_on_zero()
 
     if rank == 0:
-        sio.savemat(args['p0_name']+'.mat', {'p0': np.reshape(p0_np, XX.shape).astype(np.float32)}, do_compression=True)
+        sio.savemat(args['p0_name']+'.mat', {'p0': np.reshape(p0_np, XX.shape).astype(np.float32),
+                                             'h': h}, do_compression=True)
 
 
 
@@ -73,9 +78,9 @@ def compute_frame(comm, args):
     D_exp = hp.NumpyScalarExpression3D()
     D_exp.setData(D_np, hx, hy, hz)
     
-    z_min = 50 -.5*34
-    z_max = 50 +.5*34
-    illumination = dl.Expression(".25*(1.+std::tanh( x[2] - ZMIN))*(1.+std::tanh(ZMAX  - x[2]))", degree=1, ZMIN=z_min, ZMAX=z_max)
+    z_bnds = args['z_bnds'] 
+
+    illumination = dl.Expression(".25*(1.+std::tanh( x[2] - ZMIN))*(1.+std::tanh(ZMAX  - x[2]))", degree=1, ZMIN=z_bnds[0], ZMAX=z_bnds[1])
     
     Vh = dl.FunctionSpace(mesh, "CG", 1)
     DG0 = dl.FunctionSpace(mesh, "DG", 0)
@@ -137,6 +142,11 @@ def compute_frame(comm, args):
     return lesion_signal, liver_signal, lesion_volume, liver_volume
         
 if __name__=='__main__':
+
+    comm = dl.MPI.comm_world  #2018.1
+    rank  = comm.rank
+    nproc = comm.size
+
     parser = argparse.ArgumentParser(description='Generate unstructured mesh', fromfile_prefix_chars='@')
     parser.add_argument('--config',
                         default='/workspace/shared_data/DCE-MOBY4D/vit_z1_r3/config.ini',
@@ -174,15 +184,22 @@ if __name__=='__main__':
     nstart = cl_args.start_frame
     nend   = cl_args.end_frame if cl_args.end_frame > 0 else args['n_frames']
 
-    comm = dl.MPI.comm_world  #2018.1
-    rank  = comm.rank
-    nproc = comm.size
+    if not os.path.exists(os.path.join(config.get('path','root_folder'), 'p0')):
+        if rank == 0:
+            os.mkdir(os.path.join(config.get('path','root_folder'), 'p0'))
+
+    z_center = config.getfloat('geometry','z_center')
+    z_ill    = config.getfloat('geometry','z_ill')
+    z_fov    = config.getfloat('geometry','z_fov')
+
+    args['z_bnds'] = [z_center -.5*z_ill, z_center+.5*z_ill]
+    args['z_fov'] =  [z_center - .5*z_fov, z_center + .5*z_fov]
 
     dl.set_log_active(False)
 
     if rank == 0:
         f = open('average_signal_{0}_{1}.txt'.format(nstart, nend), 'w')
-        
+
     if rank == 0:
         print("index lesion spleen time\n") 
     for index in range(nstart, nend, 1):

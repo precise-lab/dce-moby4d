@@ -31,14 +31,14 @@ def generate_mesh(data, args):
     dd = data.astype(dtype=np.uint16)
 
     cell_sizes_map = {}
-    cell_sizes_map['default'] = .5 #mm
+    cell_sizes_map['default'] = .51 #mm
     cell_sizes_map[args['spleen_label']+1] = 0.25 #mm
     cell_sizes_map[args['lesion_label']+1] = 0.25 #mm
         
     
 
     mesh = pygalmesh.generate_from_array(dd, h, max_cell_circumradius=cell_sizes_map,
-                                         max_facet_distance=h[0], verbose=args['verbose'])
+                                         max_facet_distance=1.1*h[0], verbose=args['verbose'])
 
     
     dd_unique = np.unique(dd[:]).astype(np.uint32)
