@@ -10,7 +10,7 @@
 
 function [ca, c_perf, t] = contrast_agent_curve(startTime, endTime, dt)
 % Injection time is at t=0.
-A = 0.6;    % mM
+A = 0.6/60;    % mM s^(-1)
 B = 0.18/60.;   % s^(-1)
 C = 0.45;   % mM
 D = 0.5/60.;    % s^(-1)
