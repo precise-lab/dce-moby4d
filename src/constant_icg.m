@@ -178,6 +178,7 @@ e_icg(:, 1) = interp1(e_icg_wavelength, e_icg_tb(:, 2), wavelength, 'linear');
 e_icg(:, 2) = interp1(e_icg_wavelength, e_icg_tb(:, 3), wavelength, 'linear');
 e_icg(:, 3) = interp1(e_icg_wavelength, e_icg_tb(:, 4), wavelength, 'linear');
 e_icg(:, 4) = interp1(e_icg_wavelength, e_icg_tb(:, 5), wavelength, 'linear');
+%e_icg(isnan(e_icg)) = 0;
 
 % plot
 figure;

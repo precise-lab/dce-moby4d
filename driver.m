@@ -3,11 +3,14 @@ clear all;
 
 addpath("./src");
 
-root_prefix = '/workspace/shared_data/DCE-MOBY4D/vit_z1_r3';
+% Wavelength
+lamb = 840 % [nm]
+
+root_prefix = '/workspace/shared_data/Moby_multi_wave/';
 prop_prefix  = 'properties';
-moby_anatomy_prefix = fullfile(root_prefix, '../anatomical_structure_body_vessel_flag_0');
-moby_lesion_prefix  = fullfile(root_prefix, '../anatomical_structure_lesion_z1_r3');
-output_prefix = fullfile(root_prefix, 'phantom');
+moby_anatomy_prefix = fullfile(root_prefix, '../DCE-MOBY4D/anatomical_structure_body_vessel_flag_0');
+moby_lesion_prefix  = fullfile(root_prefix, '../DCE-MOBY4D/anatomical_structure_lesion_z1_r3');
+output_prefix = fullfile(root_prefix, 'phantom_'+string(lamb));
 
 if(~exist(root_prefix, 'dir'))
     disp(['mkdir ', root_prefix]);
@@ -20,7 +23,7 @@ if(~exist(output_prefix, 'dir'))
 end
 
 % Volume fraction of ICG in blood
-f_ICG_in_blood = 50e-6/2e-3;
+f_ICG_in_blood = 5e3;%50e-6/2e-3;
 
 info = ini2struct(fullfile(moby_anatomy_prefix,'moby.par'));
 
@@ -37,18 +40,19 @@ anatomy_frame_n = str2num(info.out_frames);
 % Time frame
 dt      = str2num(info.time_per_frame); % s
 
+
 fprintf('[Nx, Ny, Nz]: [%d, %d, %d]\n', Nx, Ny, Nz);
 fprintf('[dx, dy, dz]: [%.3f, %.3f, %.3f] (mm):\n', dx, dy, dz);
 fprintf('Number of anatomical frames: %d\n', anatomy_frame_n);
 fprintf('Sampling rate: %.3f s.\n', dt);
 
+
+
 % Number of frames
-startTime = -2*36; % 2 rotations and 36 seconds per rotation before injection starts
-endTime = 17 * 36; %17 rotations and 36 seconds per rotation during and after injection
+startTime = -30; % 2 rotations and 36 seconds per rotation before injection starts
+endTime = 450; %17 rotations and 36 seconds per rotation during and after injection
 frame_n = (endTime-startTime)/dt;
 
-% Wavelength
-lamb = 800; % [nm]
 
 [ca, c_perf, t] = contrast_agent_curve(startTime, endTime, dt);
 
@@ -84,13 +88,23 @@ fprintf(fid, 'intestin = [%d, %d, %d, %d]\n', 38, 39, 41, 42);
 fprintf(fid, 'brain = [%d, %d]\n', 43, 81);
 fclose(fid);
 
-start_f = 1;
 fid = fopen(fullfile(root_prefix,'mu_a_trace'),'w');
 
-for i_frame=start_f:frame_n
+start_z = 270;
+end_z = start_z;
+
+art_locs = [60, 120, 190; 126, 80, 90];
+
+
+for i_frame= 1:9600
 
     i_anatomy_frame = mod(i_frame-1, anatomy_frame_n)+1;
     label_map = get_label_map(moby_anatomy_prefix, moby_lesion_prefix, [Nx, Ny, Nz], i_anatomy_frame);
+    label_map = label_map(:,:,start_z:end_z);
+
+    for j = 1:size(art_locs,2)
+        label_map(art_locs(1,j):art_locs(1,j)+2,art_locs(2,j):art_locs(2,j)+2,:) = 18;
+    end
 
 
     mu_a = assign_mu_a(properties, label_map, lamb, ca(i_frame), c_perf(i_frame));
@@ -101,6 +115,7 @@ for i_frame=start_f:frame_n
     label_map = int16(label_map);
     mu_a = single(mu_a);
     mu_sp = single(mu_sp);
+
 
     save(fname, 'label_map', 'mu_a', 'mu_sp');
 
@@ -113,6 +128,11 @@ for i_frame=start_f:frame_n
 
     fprintf('%06d %1.5e %1.5e %1.5e %1.5e\n', i_frame, lesion_mu_a, ...
                                 spleen_mu_a, lesion_volume, spleen_volume);
+    
+
+    
 
 end
+
+quit;
 
