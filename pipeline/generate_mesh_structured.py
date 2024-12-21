@@ -36,17 +36,20 @@ def generate_structured_mesh(input_fname, output_fname, h):
     print("(nx, ny, nz) = ({0}, {1}, {2})".format(*data.shape) )
 
     z_data = np.max(data, axis=(0,1))
+    tissue2label = moby.TissueComposition.create().tissue2label
 
-    z_indexes = np.where(z_data == moby.tissue2label['tumor'])[0]
+    z_indexes = np.where(z_data == tissue2label['tumor'])[0]
     print(z_indexes[0], z_indexes[-1])
     z_index_min = z_indexes[0] - 100
     z_index_max = z_indexes[-1] + 100
     print("extended indexes", z_index_min, " ", z_index_max)
 
-    data[:,:, 0:z_index_min] = moby.tissue2label["background"]
-    data[:,:, z_index_max:] = moby.tissue2label["background"]
+    data[:,:, 0:z_index_min] = tissue2label["background"]
+    data[:,:, z_index_max:] = tissue2label["background"]
 
-    outer_mesh = dl.BoxMesh(dl.Point(0.0, 0.0, 0.0), dl.Point(data.shape[0]*h[0], data.shape[1]*h[1],data.shape[2]*h[2]), *data.shape)
+    points = [dl.Point(0.0, 0.0, 0.0),
+              dl.Point(data.shape[0]*h[0], data.shape[1]*h[1],data.shape[2]*h[2]) ]
+    outer_mesh = dl.BoxMesh.create(points, data.shape, dl.cpp.mesh.CellType.Type.tetrahedron)
     mask = dl.MeshFunction('size_t', outer_mesh, 3)
     np_mask = data > 0
     hp.numpy2MeshFunction(outer_mesh, np.array(h), np_mask.astype(int), mask)

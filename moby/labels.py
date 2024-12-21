@@ -92,8 +92,8 @@ label2tissue[92] = 'bone'
 label2tissue[93] = 'marrow'
 label2tissue[94] = 'spine'
 
-label2tissue[96] = 'vein'
-label2tissue[97] = 'artery'
+label2tissue[95] = 'vein'
+label2tissue[96] = 'artery'
 label2tissue[98] = 'tumor'
 
 tissue2label = {v: k for k,v in label2tissue.items() }
@@ -102,3 +102,15 @@ merge_labels = {}
 merge_labels["intestin"] = ([38, 39, 41, 42], 38)
 merge_labels["brain"]    = ([v for v in  range(43,48)] + [v for v in range(49, 82)], 43)
 merge_labels["bones"]    = ([82,83] + [v for v in range(85,95)], 92)
+
+if __name__ == "__main__":
+    import csv
+    fname = 'tissue_composition.csv'
+    fid = open(fname, newline='')
+    reader = csv.DictReader(fid)
+    volume_fractions = {}
+    for row in reader:
+        label = tissue2label[row['tissue']]
+        cvs_label = int( row['label'] )
+        print(row['tissue'], " ", label, cvs_label)
+        assert(label == cvs_label)

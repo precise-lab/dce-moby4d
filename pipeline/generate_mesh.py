@@ -25,20 +25,12 @@ import os
 
 
 
-def generate_mesh(data, h, verbose):
+def generate_mesh(data, h, cell_sizes_map, verbose):
     
     dd = data.astype(dtype=np.uint16)
 
-    cell_sizes_map = {}
-    cell_sizes_map['default'] = .5 #mm
-    cell_sizes_map[moby.tissue2label["artery"]] = 0.1 #mm
-    cell_sizes_map[moby.tissue2label["vein"]] = 0.1 #mm
-    cell_sizes_map[ moby.tissue2label["tumor"]] = 0.1
-    cell_sizes_map[ moby.tissue2label["liver"]] = 0.2
-    cell_sizes_map[ moby.tissue2label["gall_bladder"]] = 0.15
-
-    mesh = pygalmesh.generate_from_array(dd, h, max_cell_circumradius=cell_sizes_map,
-                                         max_facet_distance=0.95*h[0], verbose=verbose)
+    mesh = pygalmesh.generate_from_array(dd, h,lloyd=False, odt=False, max_cell_circumradius=cell_sizes_map,
+                                         max_facet_distance=1.25*h[0], verbose=verbose)
 
     
     dd_unique = np.unique(dd[:]).astype(np.uint32)
@@ -75,25 +67,31 @@ def generate_unstructured_mesh(input_fname, output_fname, h, verbose):
     assert( geo_dim == 3) 
     print("(nx, ny, nz) = ({0}, {1}, {2})".format(*data.shape) )
 
-    for tissue in moby.merge_labels:
-        labels, ref_label = moby.merge_labels[tissue]
-        for l in labels:
-            data[data==l] = ref_label
+    tissueComposition = moby.TissueComposition.create()
+    tissue2label = tissueComposition.tissue2label
+    data = tissueComposition.gLabelMap(data)
 
     z_data = np.max(data, axis=(0,1))
 
-    z_indexes = np.where(z_data == moby.tissue2label['tumor'])[0]
+    z_indexes = np.where(z_data == tissue2label['tumor'])[0]
     print(z_indexes[0], z_indexes[-1])
     z_index_min = z_indexes[0] - 100
     z_index_max = z_indexes[-1] + 100
     print("extended indexes", z_index_min, " ", z_index_max)
 
-    data[:,:, 0:z_index_min] = moby.tissue2label["background"]
-    data[:,:, z_index_max:] = moby.tissue2label["background"]
+    data[:,:, 0:z_index_min] = tissue2label["background"]
+    data[:,:, z_index_max:] = tissue2label["background"]
 
+    cell_sizes_map = {}
+    cell_sizes_map['default'] = .5 #mm
+    cell_sizes_map[tissue2label["artery"]] = 0.15 #mm
+    cell_sizes_map[tissue2label["vein"]] = 0.15 #mm
+    cell_sizes_map[tissue2label["tumor"]] = 0.15
+    cell_sizes_map[tissue2label["liver"]] = 0.25
+    cell_sizes_map[tissue2label["gall_bladder"]] = 0.25
 
     start = timer()
-    mesh, c_labels = generate_mesh(data, h, verbose)
+    mesh, c_labels = generate_mesh(data, h, cell_sizes_map, verbose)
     end = timer()
     print('Generate Mesh: Elapsed time: {}'.format(end-start))
     

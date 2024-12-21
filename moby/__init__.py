@@ -1,1 +1,1 @@
-from .labels import label2tissue, tissue2label, merge_labels
+from .tissue_composition import TissueComposition, Component
