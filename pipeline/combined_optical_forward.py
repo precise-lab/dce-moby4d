@@ -37,6 +37,9 @@ if __name__ == "__main__":
                         help = "End frame index")
     args = parser.parse_args()
 
+    wavelength_batch = 0
+    n_wave_lengths = 8
+
     comm = dl.MPI.comm_world
     rank  = comm.rank
     #if rank == 0:
@@ -173,7 +176,7 @@ if __name__ == "__main__":
         dx_lumped = ufl.dx(metadata={"quadrature_degree": 1, "representation":"quadrature"}, scheme='vertex')
         ds_lumped = ufl.ds(metadata={"quadrature_degree": 1, "representation":"quadrature"}, scheme='vertex')
 
-        z_dir = dl.Constant((0.,0., 1.))
+        #z_dir = dl.Constant((0.,0., 1.))
 
         h = 0.15
         
@@ -185,13 +188,13 @@ if __name__ == "__main__":
         XX, YY, ZZ = np.meshgrid(xi, yi, zi)
         points = np.hstack([np.reshape(xyz, (xyz.size,1)) for xyz in [XX,YY,ZZ] ])
 
-        B = hp.assemblePointwiseObservation(Vh_phi, points)
+        B = hp.assemblePointwiseObservation(Vh_m, points)
             
-        i = mesh_it + 10*nmesh
+        i = wavelength_batch*mesh_it #+ 10*nmesh
         while i < args.start_frame:
-                i += nmesh
+                i += nmesh*n_wave_lengths
         while i < args.end_frame:
-            #T1 = time.time()
+            T1 = time.time()
             if rank == 0:
                 print(f"    Frame {i}")
             rhs_mua = dl.Constant(0.)*m_test*dx  
@@ -227,14 +230,15 @@ if __name__ == "__main__":
             D = 1/(3*(Mu_a + Mu_sp))
             Aform = D*ufl.inner(ufl.grad(phi_trial), ufl.grad(phi_test))*dx_diff  \
                 + ufl.inner(Mu_a*phi_trial, phi_test)*dx_lumped \
-                + ufl.inner(dl.Constant(0.5)*phi_trial, phi_test)*ds_lumped \
-                -dl.Constant(0.99)*D*ufl.inner(ufl.dot(z_dir, ufl.grad(phi_trial)), ufl.dot(z_dir, ufl.grad(phi_test)))*dx_diff(1) 
+                + ufl.inner(dl.Constant(0.5)*phi_trial, phi_test)*ds_lumped
+                #-dl.Constant(0.99)*D*ufl.inner(ufl.dot(z_dir, ufl.grad(phi_trial)), ufl.dot(z_dir, ufl.grad(phi_test)))*dx_diff(1) 
             bform = ufl.inner(dl.Constant(0.5)*illumination, phi_test)*ds_lumped
 
                 
             fluence = dl.Function(Vh_phi, name="Fluence")
             A,b = dl.assemble_system(Aform, bform)
-            Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
+            #Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
+            Asolver = hp.PETScKrylovSolver(comm, "cg", "jacobi")
             Asolver.set_operator(A)
             Asolver.solve(fluence.vector(), b)
 
@@ -243,7 +247,7 @@ if __name__ == "__main__":
                 print(" Diffusion Approximation Time {}".format(t2 - t1))
             t1 = time.time()"""
             
-            p0 = dl.project(Mu_a*fluence, solver_type='cg', preconditioner_type='jacobi')
+            p0 = dl.project(Mu_a*fluence, Vh_m, solver_type='cg', preconditioner_type='jacobi')
             #p0.rename("p0", "p0")
 
             """with dl.XDMFFile(comm, args.fluence +f"moby{i}.xdmf") as fid:
@@ -261,11 +265,11 @@ if __name__ == "__main__":
             if rank == 0:
                 print(" P0 Time {}".format(t2 - t1))"""
 
-            i += nmesh
-            """T2 = time.time()
+            i += nmesh*n_wave_lengths
+            T2 = time.time()
             if rank == 0:
-                print(" Total Time {}".format(T2 - T1))"""
-            assert False
+                print(" Total Time {}".format(T2 - T1))
+            
         
 
 
