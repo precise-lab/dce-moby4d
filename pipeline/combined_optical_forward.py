@@ -42,10 +42,8 @@ if __name__ == "__main__":
 
     comm = dl.MPI.comm_world
     rank  = comm.rank
-    #if rank == 0:
     constants = io.loadmat('../properties2/constants.mat')
     constant_icg = io.loadmat('../properties2/constant_icg.mat')
-    func_prop = io.loadmat('../properties2/func_prop.mat')
     tissueComposition = moby.TissueComposition.create()
     labels = tissueComposition.tissue2label
     opt_prop = io.loadmat('../properties2/opt_prop.mat')
@@ -70,21 +68,11 @@ if __name__ == "__main__":
     c_perf = np.zeros(t.shape)
     c_perf[t> 0] = (Ktrans*np.convolve(np.exp(-kep*t_pos), ca_tp[t>0])*dt)[:t_pos.shape[0]]
     del t_pos
-    
 
-    
-    """import matplotlib.pyplot as plt
-    plt.plot(ca_tp)
-    plt.plot(c_perf)
-    plt.savefig("ca_test.png")
-    assert False"""
-
-    mu_a_b_oxy = np.log(10)*func_prop['c_thb_b']*constants['e_hbo2']
-    mu_a_b_deoxy = np.log(10)*func_prop['c_thb_b']*constants['e_hb']
+    mu_a_b_oxy = np.log(10)*tissueComposition.c_thb_b*constants['e_hbo2']
+    mu_a_b_deoxy = np.log(10)*tissueComposition.c_thb_b*constants['e_hb']
     mu_a_w = constants['mu_a_w']
 
-    f_b = func_prop['f_b']
-    f_w = func_prop['f_w']
     g = opt_prop['g']
     mu_s_ref = opt_prop['mu_s_ref']
     wavelength_ref = opt_prop['wavelength_ref']
@@ -98,15 +86,11 @@ if __name__ == "__main__":
 
     s = 19
     z_bnds = [0, 200*0.15]
-    #if rank ==0:
     source_locations = 1e3*io.loadmat('../optical_modeling/source_locations.mat')['xy']
-    #source_locations 
-    #source_locations = source_locations[:,[0,2]] 
     source_locations[:,2] *= -1 
     source_locations[:,[0,2]] = s + source_locations[:,[0,2]]#@np.array([[0, 1], [-1, 0]])
     source_locations[:,1] = (z_bnds[0] + z_bnds[1])/2
     source_locations = source_locations[:,[0, 2, 1]]
-    #source_locations = source_locations[[0,-1],:]
     source_inds = np.arange(source_locations.shape[0])[::source_locations.shape[0]//4]
     source_inds = np.append(source_inds, source_locations.shape[0] - 1)
     source_locations = source_locations[source_inds,:]
@@ -119,7 +103,7 @@ if __name__ == "__main__":
     theta_max = 9.5*np.pi/180.
     slit_height = 12.
     intensity = 100.
-    source_mua = 1e-6
+    source_mua =  mu_a_w[wavelengths == args.wavelength][0]
 
     nmesh = 199
 
@@ -154,7 +138,7 @@ if __name__ == "__main__":
                 rhs_musp += dl.Constant((args.wavelength/wavelength_ref[labels[key], 0])**(-0.7)*mu_s_ref[labels[key], 0]*(1-g[labels[key], 0]))*m_test*dx(labels[key])
         A, b = dl.assemble_system(varf_m, rhs_musp, [])
         Mu_sp = dl.Function(Vh_m, name = 'mu_sp')
-        dl.solve(A, Mu_sp.vector(), b, 'cg', 'hypre_amg')
+        dl.solve(A, Mu_sp.vector(), b, 'cg', 'jacobi')
 
         abspath = '../../qpact2/applications/source_model/'
         source_directory = abspath  
@@ -176,8 +160,6 @@ if __name__ == "__main__":
         dx_lumped = ufl.dx(metadata={"quadrature_degree": 1, "representation":"quadrature"}, scheme='vertex')
         ds_lumped = ufl.ds(metadata={"quadrature_degree": 1, "representation":"quadrature"}, scheme='vertex')
 
-        #z_dir = dl.Constant((0.,0., 1.))
-
         h = 0.15
         
         z_fov = [93*h, 107*h]
@@ -190,87 +172,74 @@ if __name__ == "__main__":
 
         B = hp.assemblePointwiseObservation(Vh_m, points)
             
-        i = wavelength_batch*mesh_it #+ 10*nmesh
+        i = mesh_it #+ 16*nmesh
         while i < args.start_frame:
-                i += nmesh*n_wave_lengths
+                i += nmesh
         while i < args.end_frame:
-            T1 = time.time()
-            if rank == 0:
-                print(f"    Frame {i}")
-            rhs_mua = dl.Constant(0.)*m_test*dx  
-            f_ca = f_b*ca_tp[i]
-            f_ca[labels['tumor']] +=  (1. - f_b[labels['tumor']])*c_perf[i]
-            f_ca[labels['tumor_core']] +=  0.5*(1. - f_b[labels['tumor_core']])*c_perf[i]
+            if i%n_wave_lengths == wavelength_batch:
+                #T1 = time.time()
+                if rank == 0:
+                    print(f"    Frame {i}")
+                rhs_mua = dl.Constant(0.)*m_test*dx  
 
-            #t1 = time.time()
-
-
-            for key, vol in zip(labels.keys(), Vols):
-                if vol > 0:
-                    s_coeff = mu_a_b_oxy[wavelengths == args.wavelength][0]*f_b[labels[key],0] \
-                        - mu_a_b_deoxy[wavelengths == args.wavelength][0]*f_b[labels[key], 0]
-                    c_coeff = mu_a_b_deoxy[wavelengths == args.wavelength][0]*f_b[labels[key], 0] \
-                        + mu_a_w[wavelengths == args.wavelength][0]*f_w[labels[key], 0] \
-                        + mu_a_ca[wavelengths == args.wavelength][0]*f_ca[labels[key], 0]
-                    rhs_mua += (s_coeff*so2 + dl.Constant(c_coeff))*m_test*dx(labels[key])
-                    """rhs_mua += dl.Constant(mu_a_b_oxy[wavelengths == args.wavelength][0]*f_b[labels[key],0])*so2*m_test*dx(labels[key])
-                    rhs_mua += dl.Constant(mu_a_b_deoxy[wavelengths == args.wavelength][0]*f_b[labels[key], 0])*(1-so2)*m_test*dx(labels[key])
-                    rhs_mua += dl.Constant(mu_a_w[wavelengths == args.wavelength][0]*f_w[labels[key], 0])*m_test*dx(labels[key])
-                    rhs_mua += dl.Constant(mu_a_ca[wavelengths == args.wavelength][0]*f_ca[labels[key], 0])*m_test*dx(labels[key])"""
+                for key, vol in zip(labels.keys(), Vols):
+                    if vol > 0:
+                        f_b = float(tissueComposition.volume_fractions[labels[key]][0])
+                        f_w = float(tissueComposition.volume_fractions[labels[key]][1])
+                        f_ca = f_b*ca_tp[i]
+                        if key == 'tumor':
+                            f_ca +=  (1. - f_b)*c_perf[i]
+                        if key == 'tumor_core':
+                            f_ca +=  0.5*(1. - f_b)*c_perf[i]
+                        
+                        s_coeff = mu_a_b_oxy[wavelengths == args.wavelength][0]*f_b\
+                            - mu_a_b_deoxy[wavelengths == args.wavelength][0]*f_b
+                        c_coeff = mu_a_b_deoxy[wavelengths == args.wavelength][0]*f_b \
+                            + mu_a_w[wavelengths == args.wavelength][0]*f_w \
+                            + mu_a_ca[wavelengths == args.wavelength][0]*f_ca
+                        rhs_mua += (s_coeff*so2 + dl.Constant(c_coeff))*m_test*dx(labels[key])
+                
+                A, b = dl.assemble_system(varf_m, rhs_mua, [])
+                Mu_a = dl.Function(Vh_m, name = 'mu_a')
+                dl.solve(A, Mu_a.vector(), b, 'cg', 'jacobi')
             
-            A, b = dl.assemble_system(varf_m, rhs_mua, [])
-            Mu_a = dl.Function(Vh_m, name = 'mu_a')
-            dl.solve(A, Mu_a.vector(), b, 'cg', 'hypre_amg')
-            
-            """t2 = time.time()
-            if rank == 0:
-                print(" Mu_a time {}".format(t2 - t1))   
-            t1 = time.time()"""
 
-            D = 1/(3*(Mu_a + Mu_sp))
-            Aform = D*ufl.inner(ufl.grad(phi_trial), ufl.grad(phi_test))*dx_diff  \
-                + ufl.inner(Mu_a*phi_trial, phi_test)*dx_lumped \
-                + ufl.inner(dl.Constant(0.5)*phi_trial, phi_test)*ds_lumped
-                #-dl.Constant(0.99)*D*ufl.inner(ufl.dot(z_dir, ufl.grad(phi_trial)), ufl.dot(z_dir, ufl.grad(phi_test)))*dx_diff(1) 
-            bform = ufl.inner(dl.Constant(0.5)*illumination, phi_test)*ds_lumped
+                D = 1/(3*(Mu_a + Mu_sp))
+                Aform = D*ufl.inner(ufl.grad(phi_trial), ufl.grad(phi_test))*dx_diff  \
+                    + ufl.inner(Mu_a*phi_trial, phi_test)*dx_lumped \
+                    + ufl.inner(dl.Constant(0.5)*phi_trial, phi_test)*ds_lumped
+                bform = ufl.inner(dl.Constant(0.5)*illumination, phi_test)*ds_lumped
+
+                    
+                fluence = dl.Function(Vh_phi, name="Fluence")
+                A,b = dl.assemble_system(Aform, bform)
+                Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
+                Asolver.set_operator(A)
+                p0 = dl.project(Mu_a*fluence, Vh_m, solver_type='cg', preconditioner_type='jacobi')
+                #p0.rename("p0", "p0")
+
+                """with dl.XDMFFile(comm, args.fluence +f"moby{i}.xdmf") as fid:
+                    fid.parameters["functions_share_mesh"] = True
+                    fid.parameters["rewrite_function_mesh"] = False
+                    fid.write(fluence,0)
+                    fid.write(Mu_a, 0)
+                    fid.write(Mu_sp, 0)
+                    fid.write(p0, 0)"""
+                p0_np = (B*p0.vector()).gather_on_zero()
+                if rank == 0:
+                    io.savemat(args.p0+ f"moby_{i}.mat", {'p0': np.reshape(p0_np, XX.shape).astype(np.float32),
+                                                'h': h}, do_compression=True)
+                """t2 = time.time()
+                if rank == 0:
+                    print(" P0 Time {}".format(t2 - t1))"""
 
                 
-            fluence = dl.Function(Vh_phi, name="Fluence")
-            A,b = dl.assemble_system(Aform, bform)
-            #Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
-            Asolver = hp.PETScKrylovSolver(comm, "cg", "jacobi")
-            Asolver.set_operator(A)
-            Asolver.solve(fluence.vector(), b)
-
-            """t2 = time.time()
-            if rank == 0:
-                print(" Diffusion Approximation Time {}".format(t2 - t1))
-            t1 = time.time()"""
+                """T2 = time.time()
+                if rank == 0:
+                    print(" Total Time {}".format(T2 - T1))
+                assert False"""
+            i += nmesh
             
-            p0 = dl.project(Mu_a*fluence, Vh_m, solver_type='cg', preconditioner_type='jacobi')
-            #p0.rename("p0", "p0")
 
-            """with dl.XDMFFile(comm, args.fluence +f"moby{i}.xdmf") as fid:
-                fid.parameters["functions_share_mesh"] = True
-                fid.parameters["rewrite_function_mesh"] = False
-                fid.write(fluence,0)
-                fid.write(Mu_a, 0)
-                fid.write(Mu_sp, 0)
-                fid.write(p0, 0)"""
-            p0_np = (B*p0.vector()).gather_on_zero()
-            if rank == 0:
-                io.savemat(args.p0+ f"moby_{i}.mat", {'p0': np.reshape(p0_np, XX.shape).astype(np.float32),
-                                             'h': h}, do_compression=True)
-            """t2 = time.time()
-            if rank == 0:
-                print(" P0 Time {}".format(t2 - t1))"""
 
-            i += nmesh*n_wave_lengths
-            T2 = time.time()
-            if rank == 0:
-                print(" Total Time {}".format(T2 - T1))
             
-        
-
-
-        
