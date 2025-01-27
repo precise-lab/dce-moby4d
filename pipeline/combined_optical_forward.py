@@ -22,11 +22,14 @@ import hippylib as hp
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Compute SO2', fromfile_prefix_chars='@')
-    parser.add_argument('-w', '--wavelength', default = 730)
+    parser.add_argument('-w', '--wavelength', default = 730, type = int)
     parser.add_argument('-p', '--p0', default = "/workspace/shared_data/Moby_multi_wave/p0_730/")
     parser.add_argument('-f', '--fluence', default = "/workspace/shared_data/Moby_multi_wave/fluence_730/")
     parser.add_argument('-s', '--so2', default = "/workspace/shared_data/Moby_multi_wave/so2/")
     parser.add_argument('-m', '--mesh', default = "/workspace/shared_data/Moby_multi_wave/mesh/")
+    parser.add_argument('--wb', default = 0, type = int)
+    parser.add_argument('--nw', default = 8, type = int)
+
     parser.add_argument('--start_frame',
                         default=0,
                         type=int,
@@ -37,8 +40,9 @@ if __name__ == "__main__":
                         help = "End frame index")
     args = parser.parse_args()
 
-    wavelength_batch = 0
-    n_wave_lengths = 8
+
+    wavelength_batch = args.wb
+    n_wave_lengths = args.nw
 
     comm = dl.MPI.comm_world
     rank  = comm.rank
@@ -107,7 +111,7 @@ if __name__ == "__main__":
 
     nmesh = 199
 
-    for mesh_it in range(nmesh):
+    for mesh_it in range(nmesh):#(67, nmesh):
         if rank == 0:
             print(f"Mesh {mesh_it}")
         mesh = dl.Mesh(comm)
@@ -215,6 +219,7 @@ if __name__ == "__main__":
                 A,b = dl.assemble_system(Aform, bform)
                 Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
                 Asolver.set_operator(A)
+                Asolver.solve(fluence.vector(), b)
                 p0 = dl.project(Mu_a*fluence, Vh_m, solver_type='cg', preconditioner_type='jacobi')
                 #p0.rename("p0", "p0")
 
