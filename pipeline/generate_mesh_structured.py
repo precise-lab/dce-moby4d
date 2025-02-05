@@ -24,18 +24,18 @@ sys.path.append("../")
 import moby
 
 
-sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib-public") )
+sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib") )
 import hippylib as hp
 
 import os
     
 def generate_structured_mesh(input_fname, output_fname, h):    
-    data = np.load(input_fname)["phantom"]
+    data = np.load(input_fname)#["phantom"]
     geo_dim = len(data.shape)
     assert( geo_dim == 3) 
     print("(nx, ny, nz) = ({0}, {1}, {2})".format(*data.shape) )
 
-    z_data = np.max(data, axis=(0,1))
+    """z_data = np.max(data, axis=(0,1))
     tissue2label = moby.TissueComposition.create().tissue2label
 
     z_indexes = np.where(z_data == tissue2label['tumor'])[0]
@@ -45,7 +45,7 @@ def generate_structured_mesh(input_fname, output_fname, h):
     print("extended indexes", z_index_min, " ", z_index_max)
 
     data[:,:, 0:z_index_min] = tissue2label["background"]
-    data[:,:, z_index_max:] = tissue2label["background"]
+    data[:,:, z_index_max:] = tissue2label["background"]"""
 
     points = [dl.Point(0.0, 0.0, 0.0),
               dl.Point(data.shape[0]*h[0], data.shape[1]*h[1],data.shape[2]*h[2]) ]
@@ -71,8 +71,10 @@ if __name__=='__main__':
     parser.add_argument('-hx', default = 0.15, help="Grid size x-direction")
     parser.add_argument('-hy', default =0.15, help="Grid size y-direction")
     parser.add_argument('-hz', default = 0.15, help="Grid size z-direction")
-    parser.add_argument('-f', '--fname', default = "../dce-moby-lfs/moby_phantom.npz")
-    parser.add_argument('-o', '--output', default = "moby_mesh.xdmf")
+    #parser.add_argument('-f', '--fname', default = "../dce-moby-lfs/moby_phantom.npz")
+    parser.add_argument('-f', '--fname', default = "/workspace/shared_data/Moby_multi_wave/Refik_Mouse/dynamic_phantom_anatomy/dynamic_phantom_anatomy_1.npy")
+    #parser.add_argument('-o', '--output', default = "moby_mesh.xdmf")
+    parser.add_argument('-o', '--output', default = "/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh_structured.xdmf")
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help = "Activate verbose output of pygalmesh")

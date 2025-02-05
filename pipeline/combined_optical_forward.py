@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
     nmesh = 199
 
-    for mesh_it in range(nmesh):#(67, nmesh):
+    for mesh_it in range(111, 112):#,nmesh):
         if rank == 0:
             print(f"Mesh {mesh_it}")
         mesh = dl.Mesh(comm)

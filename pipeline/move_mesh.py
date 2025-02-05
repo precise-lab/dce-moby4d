@@ -13,7 +13,7 @@ sys.path.append("../")
 import moby
 
 
-sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib-public") )
+sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib/") )
 import hippylib as hp
     
 def move_mesh(ref_mesh, ref_labels, ref_Vh, disp_array, h):
@@ -47,10 +47,13 @@ def move_mesh(ref_mesh, ref_labels, ref_Vh, disp_array, h):
     return mesh, c_labels, d
 
 if __name__ == "__main__":
-    nframes = 50
+    nframes = 200
     h = [0.15, 0.15, 0.15]
     ref_mesh = dl.Mesh()
-    with dl.XDMFFile("moby_mesh.xdmf") as fid:
+    #with dl.XDMFFile("moby_mesh.xdmf") as fid:
+    #with dl.XDMFFile("/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh.xdmf") as fid:
+    with dl.XDMFFile("/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh_structured.xdmf") as fid:
+   
         fid.read(ref_mesh)
         geo_dim = ref_mesh.geometry().dim()
         ref_labels = dl.MeshFunction('size_t', ref_mesh, geo_dim)
@@ -62,14 +65,21 @@ if __name__ == "__main__":
     fid_out = dl.XDMFFile("displacement.xdmf")
     fid_out.parameters["functions_share_mesh"] = True
     fid_out.parameters["rewrite_function_mesh"] = False
+    zmin = 175
+    zmax = 375
     #fid_out.write(ref_labels)
 
-    for i in range(1,nframes):
-        disp_array = np.load(f"../dce-moby-lfs/motion/motion{i}.npz")["motion"]
+    for i in range(84,nframes):
+        #disp_array = np.load(f"../dce-moby-lfs/motion/motion{i}.npz")["motion"]
+        disp_array = np.load(f"/workspace/shared_data/Moby_multi_wave/Refik_Mouse/motion_array/motion{i}.npz")["motion"]
+        disp_array = disp_array[:,:,zmin:zmax, :]
         mesh, c_labels, d = move_mesh(ref_mesh, ref_labels, ref_Vh, disp_array, h)
-        with dl.XDMFFile(f"moving_mesh/moby_mesh{i}.xdmf") as fid:
+        #with dl.XDMFFile(f"moving_mesh/moby_mesh{i}.xdmf") as fid:
+        with dl.XDMFFile(f"/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh{i}.xdmf") as fid:
+        
             fid.write(mesh)
             fid.write(c_labels)
 
         fid_out.write(d, i)
+        print(i)
 
