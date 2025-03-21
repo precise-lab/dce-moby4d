@@ -22,16 +22,16 @@ import argparse
 
 if __name__ == "__main__":
     
-    p0_folder =  '/workspace/shared_data/p0_multi_wave/'
+    p0_folder =  '/workspace/shared_data/Moby_multi_wave/'
 
-    Nx = 332
-    nx = 208
+    Nx = 248
+    nx = 248
 
 
     lambs = [730,  750,  770,  780,  790,  800,  820,  840]
     nl = len(lambs)
 
-    ssf = 6
+    ssf = 1
 
     nT = 9600
     nt = nT//(ssf*nl)
@@ -46,13 +46,22 @@ if __name__ == "__main__":
     for t in range(nt):
         print(t)
         for l in range(nl):
-            for j in range(nl*ssf):
-                fid = t*nl*ssf + j + 1
-                fname = p0_folder + 'p0_' + str(lambs[l]) + '/p0_' + str(fid) + '.mat'
-                f = io.loadmat(fname)['p0']
-                fi = interp.interp2d(x,x, f)
-                F[:,:,l,t] += fi(X,X)/(nl*ssf)    
-    io.savemat('subsample_p0.mat',{'p0': F})
+            for j in range(ssf):
+                fid = l + j*ssf + t*ssf*nl
+                fname = p0_folder + 'p0_' + str(lambs[l]) + '/moby_' + str(fid) + '.mat'
+                f = io.loadmat(fname)['p0'] 
+                F[:,:,l,t] += np.mean(f,-1)/(ssf) 
+    """try:
+        print("Saving as 1 file")
+        io.savemat('subsample_p0.mat',{'p0': F})"""
+        
+    """except:
+        print("Saving as 3 files")"""
+    io.savemat('subsample_p00.mat',{'p0': F[:,:,:,::3]}, do_compression = True)
+    io.savemat('subsample_p01.mat',{'p0': F[:,:,:,1::3]}, do_compression = True)
+    io.savemat('subsample_p02.mat',{'p0': F[:,:,:,2::3]}, do_compression = True)
+        
+        
 
 
 
