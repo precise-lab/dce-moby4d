@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--so2', default = "/workspace/shared_data/Moby_multi_wave/so2/")
     parser.add_argument('-m', '--mesh', default = "/workspace/shared_data/Moby_multi_wave/mesh/")
     parser.add_argument('--wb', default = 0, type = int)
-    parser.add_argument('--nw', default = 8, type = int)
+    parser.add_argument('--nw', default = 1, type = int)
 
     parser.add_argument('--start_frame',
                         default=0,
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
     nmesh = 199
 
-    for mesh_it in range(123, nmesh):
+    for mesh_it in range(nmesh):
         if rank == 0:
             print(f"Mesh {mesh_it}")
         mesh = dl.Mesh(comm)
