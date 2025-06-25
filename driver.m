@@ -4,11 +4,13 @@ clear all;
 addpath("./src");
 
 % Wavelength
-lamb = 840 % [nm]
+lambs = [730, 750, 770, 780, 790, 800, 820, 840]
+lamb = lambs(5) % [nm]
 
 root_prefix = '/workspace/shared_data/Moby_multi_wave/';
 prop_prefix  = 'properties';
-moby_anatomy_prefix = fullfile(root_prefix, '../DCE-MOBY4D/anatomical_structure_body_vessel_flag_0');
+% moby_anatomy_prefix = fullfile(root_prefix, '../DCE-MOBY4D/anatomical_structure_body_vessel_flag_0');
+moby_anatomy_prefix = fullfile(root_prefix, 'Refik_Mouse/moby_anatomy/');
 moby_lesion_prefix  = fullfile(root_prefix, '../DCE-MOBY4D/anatomical_structure_lesion_z1_r3');
 output_prefix = fullfile(root_prefix, 'phantom_'+string(lamb));
 
@@ -45,6 +47,7 @@ fprintf('[Nx, Ny, Nz]: [%d, %d, %d]\n', Nx, Ny, Nz);
 fprintf('[dx, dy, dz]: [%.3f, %.3f, %.3f] (mm):\n', dx, dy, dz);
 fprintf('Number of anatomical frames: %d\n', anatomy_frame_n);
 fprintf('Sampling rate: %.3f s.\n', dt);
+
 
 
 
@@ -90,8 +93,8 @@ fclose(fid);
 
 fid = fopen(fullfile(root_prefix,'mu_a_trace'),'w');
 
-start_z = 270;
-end_z = start_z;
+start_z = 236;
+end_z = 304;
 
 art_locs = [60, 120, 190; 126, 80, 90];
 

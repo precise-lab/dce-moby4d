@@ -38,8 +38,7 @@ if __name__ == "__main__":
 
 
 
-    F = np.ones((Nx,Nx, nt))
-    G = np.ones((Nx,Nx,nt))
+    F = np.zeros((Nx,Nx,nl, nt))
 
 
     x = np.arange(nx)
@@ -47,17 +46,27 @@ if __name__ == "__main__":
     for t in range(nt):
         print(t)
         for l in range(nl):
-            for j in range(nl*ssf):
-                fid = t*nl*ssf + j + 1
-                fname = p0_folder + 'phantom_' + str(lambs[l]) + '/moby' + '0'*(6- len(str(fid))) +str(fid) + '.mat'
-                m = io.loadmat(fname)['label_map'][20:-20, 20:-20]
-                f = (m==9).astype(int)
-                g = (m == 18).astype(int)
-                fi = interp.interp2d(x,x, f)
-                F[:,:,t] *= fi(X,X)
-                gi = interp.interp2d(x,x, g)
-                G[:,:,t] *= gi(X,X)
-    F = (F > 0).astype(int)
-    G = (G > 0).astype(int)
-    io.savemat('subsample_mask.mat',{'mask': F})
-    io.savemat('subsample_aif_mask.mat',{'aif_mask': G})
+            for j in range(ssf):
+                fid = l + j*ssf + t*ssf*nl
+                fname = p0_folder + 'p0_' + str(lambs[l]) + '/moby_' + str(fid) + '.mat'
+                f = io.loadmat(fname)['p0'] 
+                F[:,:,l,t] += np.mean(f,-1)/(ssf) 
+    try:
+        print("Saving as 1 file")
+        io.savemat('subsample_mu_a.mat',{'mu_a': F})
+        
+    except:
+        print("Saving as 3 files")
+        io.savemat('subsample_mu_a0.mat',{'p0': F[:,:,:,::3]})
+        io.savemat('subsample_mu_a1.mat',{'p0': F[:,:,:,1::3]})
+        io.savemat('subsample_mu_a2.mat',{'p0': F[:,:,:,2::3]})  
+    io.savemat('subsample_mu_a.mat',{'mu_a': F})
+
+
+
+
+
+
+    
+
+

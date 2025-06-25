@@ -20,7 +20,7 @@ from timeit import default_timer as timer
 import sys
 import os
 
-sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../../hippylib-public") )
+sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib") )
 import hippylib as hp
 
 
@@ -42,7 +42,10 @@ def convert_to_cartesian_parallel(comm, p0, N, args):
     points = np.hstack([np.reshape(xyz, (xyz.size,1)) for xyz in [XX,YY,ZZ] ])
 
     Vh = p0.function_space()
+    print("made it here")
     B = hp.assemblePointwiseObservation(Vh, points)
+    print("assembled")
+    assert False
 
     p0_np = (B*p0.vector()).gather_on_zero()
 
@@ -169,8 +172,11 @@ if __name__=='__main__':
     args = {}
     args['properties']=os.path.join(config.get('path', 'root_folder'), 'phantom', config.get('path','fname_template'))
     args['mesh']=os.path.join(config.get('path', 'root_folder'), 'mesh', config.get('path','fname_template'))
-    args['fluence']=os.path.join(config.get('path','root_folder'), 'fluence', config.get('path','fname_template'))
-    args['p0']=os.path.join(config.get('path','root_folder'), 'p0', config.get('path','fname_template'))
+    #args['fluence']=os.path.join(config.get('path','root_folder'), 'fluence', config.get('path','fname_template'))
+    args['fluence'] =  "/workspace/shared_data/Moby_multi_wave/fluence/moby{0:06d}"
+    #args['p0']=os.path.join(config.get('path','root_folder'), 'p0', config.get('path','fname_template'))
+    #print(args['p0'])
+    args['p0']= "/workspace/shared_data/Moby_multi_wave/p0/moby{0:06d}"
     args['label_map'] = 'label_map'
     args['voxel_size_x'] = config.getfloat('grid','voxel_size_x')
     args['voxel_size_y'] = config.getfloat('grid','voxel_size_y')
@@ -184,9 +190,9 @@ if __name__=='__main__':
     nstart = cl_args.start_frame
     nend   = cl_args.end_frame if cl_args.end_frame > 0 else args['n_frames']
 
-    if not os.path.exists(os.path.join(config.get('path','root_folder'), 'p0')):
+    """if not os.path.exists(os.path.join(config.get('path','root_folder'), 'p0')):
         if rank == 0:
-            os.mkdir(os.path.join(config.get('path','root_folder'), 'p0'))
+            os.mkdir(os.path.join(config.get('path','root_folder'), 'p0'))"""
 
     z_center = config.getfloat('geometry','z_center')
     z_ill    = config.getfloat('geometry','z_ill')

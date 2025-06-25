@@ -75,3 +75,5 @@ conda env config vars set OMP_NUM_THREADS=1 -n fenics-2019.1
 ```bash
 git clone https://github.com/hippylib/hippylib.git
 ```
+
+matlab -nodisplay -nosplash -nodesktop -r "driver; quit;" > output.log

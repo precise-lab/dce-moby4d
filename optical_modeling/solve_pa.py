@@ -71,7 +71,7 @@ def solve_pa(lamb, inds):
         
         
         mask = dl.MeshFunction('size_t', mesh, 2)
-        np_mask = (np.transpose(M['label_map'][20:-20,20:-20]) >0)
+        np_mask = (np.transpose(M['label_map'][20:-20,20:-20]) > 0)
         numpy2MeshFunction(mesh, pixel_size*np.ones(2, dtype=np.float64), np_mask.astype(int), mask)
         sub_mesh = dl.SubMesh(mesh, mask, 1)
 

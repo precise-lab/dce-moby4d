@@ -26,11 +26,20 @@ import os
 
 
 def generate_mesh(data, h, cell_sizes_map, verbose):
+    up_factor = 3
     
     dd = data.astype(dtype=np.uint16)
+    dd_big = np.zeros((up_factor*dd.shape[0], up_factor*dd.shape[1], up_factor*dd.shape[2]), dtype = np.uint16)
+    for i in range(up_factor):
+        for j in range(up_factor):
+            for k in range(up_factor):
+                dd_big[i::up_factor, j::up_factor, k::up_factor] = dd
+    h_big = [hi/up_factor for hi in h]
 
-    mesh = pygalmesh.generate_from_array(dd, h,lloyd=False, odt=False, max_cell_circumradius=cell_sizes_map,
-                                         max_facet_distance=1.25*h[0], verbose=verbose)
+
+    mesh = pygalmesh.generate_from_array(dd_big, h_big,lloyd=False, odt=False, max_cell_circumradius=cell_sizes_map,
+                                         max_facet_distance=1.0*h[0], verbose=verbose)
+    #                                     max_facet_distance=1.25*h[0], verbose=verbose)
 
     
     dd_unique = np.unique(dd[:]).astype(np.uint32)
@@ -62,7 +71,7 @@ def generate_mesh(data, h, cell_sizes_map, verbose):
 
     
 def generate_unstructured_mesh(input_fname, output_fname, h, verbose):    
-    data = np.load(input_fname)["phantom"]
+    data = np.load(input_fname)#["phantom"]
     geo_dim = len(data.shape)
     assert( geo_dim == 3) 
     print("(nx, ny, nz) = ({0}, {1}, {2})".format(*data.shape) )
@@ -71,7 +80,7 @@ def generate_unstructured_mesh(input_fname, output_fname, h, verbose):
     tissue2label = tissueComposition.tissue2label
     data = tissueComposition.gLabelMap(data)
 
-    z_data = np.max(data, axis=(0,1))
+    """z_data = np.max(data, axis=(0,1))
 
     z_indexes = np.where(z_data == tissue2label['tumor'])[0]
     print(z_indexes[0], z_indexes[-1])
@@ -80,15 +89,15 @@ def generate_unstructured_mesh(input_fname, output_fname, h, verbose):
     print("extended indexes", z_index_min, " ", z_index_max)
 
     data[:,:, 0:z_index_min] = tissue2label["background"]
-    data[:,:, z_index_max:] = tissue2label["background"]
+    data[:,:, z_index_max:] = tissue2label["background"]"""
 
     cell_sizes_map = {}
-    cell_sizes_map['default'] = .5 #mm
+    cell_sizes_map['default'] = .15 #mm
     cell_sizes_map[tissue2label["artery"]] = 0.15 #mm
     cell_sizes_map[tissue2label["vein"]] = 0.15 #mm
     cell_sizes_map[tissue2label["tumor"]] = 0.15
-    cell_sizes_map[tissue2label["liver"]] = 0.25
-    cell_sizes_map[tissue2label["gall_bladder"]] = 0.25
+    cell_sizes_map[tissue2label["liver"]] = 0.15
+    cell_sizes_map[tissue2label["gall_bladder"]] = 0.15
 
     start = timer()
     mesh, c_labels = generate_mesh(data, h, cell_sizes_map, verbose)
@@ -108,8 +117,10 @@ if __name__=='__main__':
     parser.add_argument('-hx', default = 0.15, help="Grid size x-direction")
     parser.add_argument('-hy', default =0.15, help="Grid size y-direction")
     parser.add_argument('-hz', default = 0.15, help="Grid size z-direction")
-    parser.add_argument('-f', '--fname', default = "../dce-moby-lfs/moby_phantom.npz")
-    parser.add_argument('-o', '--output', default = "moby_mesh.xdmf")
+    #parser.add_argument('-f', '--fname', default = "../dce-moby-lfs/moby_phantom.npz")
+    parser.add_argument('-f', '--fname', default = "/workspace/shared_data/Moby_multi_wave/Refik_Mouse/dynamic_phantom_anatomy/dynamic_phantom_anatomy_1.npy")
+    #parser.add_argument('-o', '--output', default = "moby_mesh.xdmf")
+    parser.add_argument('-o', '--output', default = "/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh.xdmf")
     parser.add_argument('-v', '--verbose',
                         action='store_true',
                         help = "Activate verbose output of pygalmesh")

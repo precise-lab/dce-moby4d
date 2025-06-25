@@ -16,6 +16,28 @@ import moby
 sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib/") )
 import hippylib as hp
 
+
+def computeOxygenSaturation(materials, mesh, dx):
+    
+    Vh = dl.FunctionSpace(mesh, 'CG', 1)    
+    
+    sO2diff = dl.Constant(.01)
+    
+    uh, vh = dl.TrialFunction(Vh), dl.TestFunction(Vh)
+    varf = sO2diff* dl.inner(dl.grad(uh), dl.grad(vh))*dl.dx \
+          + uh*vh*dx(Labels['artery']) + uh*vh*dx(Labels['vein']) + uh*vh*dx(Labels['tumor'])
+    rhs  = materials[Labels['artery']].sat*vh*dx(Labels['artery']) + \
+           materials[Labels['vein']].sat*vh*dx(Labels['vein']) + \
+           materials[Labels['tumor']].sat*vh*dx(Labels['tumor'])
+    
+    u = dl.Function(Vh, name='Saturation')
+    
+    A, b = dl.assemble_system(varf, rhs, [])
+    
+    dl.solve(A, u.vector(), b, 'cg', 'hypre_amg')
+    
+    return u
+
 class Material:
     def __init__(self, label, c_thb = 0., sat = 1., c_w = 0., c_f = 0., c_m = 0., mu_ps0 = 1.92, g = 0.95):
         self.label  = label
@@ -172,6 +194,32 @@ if __name__ == "__main__":
     Labels = tissueComposition.tissue2label
     materials = define_materials(Labels)
 
+    ref_mesh =  dl.Mesh(dl.MPI.comm_world)
+    with dl.XDMFFile(cl_args.fname + "moby_mesh_structured.xdmf") as fid:
+        fid.read(ref_mesh)
+        geo_dim = ref_mesh.geometry().dim()
+        ref_c_labels = dl.MeshFunction('size_t', ref_mesh, geo_dim) 
+        fid.read(ref_c_labels, "c_labels")
+
+    dx = dl.Measure("dx",  subdomain_data=ref_c_labels)
+    ref_Vh = dl.FunctionSpace(ref_mesh, 'CG', 1)  
+
+    sO2diff = dl.Constant(1e-6)
+
+    uh, vh = dl.TrialFunction(ref_Vh), dl.TestFunction(ref_Vh)
+    varf = sO2diff* dl.inner(dl.grad(uh), dl.grad(vh))*dl.dx \
+        + uh*vh*dx(Labels['artery']) + uh*vh*dx(Labels['vein']) + uh*vh*dx(Labels['tumor']) + + uh*vh*dx(Labels['tumor_core'])
+    rhs  = materials[Labels['artery']].sat*vh*dx(Labels['artery']) + \
+        materials[Labels['vein']].sat*vh*dx(Labels['vein']) + \
+        materials[Labels['tumor']].sat*vh*dx(Labels['tumor']) + \
+        materials[Labels['tumor_core']].sat*vh*dx(Labels['tumor_core'])
+    ref_u = dl.Function(ref_Vh, name='Saturation')
+    A, b = dl.assemble_system(varf, rhs, [])
+    dl.solve(A, ref_u.vector(), b, 'cg', 'hypre_amg')
+
+    with dl.XDMFFile(cl_args.output+"ref_so2.xdmf") as out:
+        out.write_checkpoint(ref_u, "so2", append=False)
+     
 
     for i in range(cl_args.start_frame, cl_args.end_frame):
         print(i)
@@ -183,25 +231,11 @@ if __name__ == "__main__":
             fid.read(c_labels, "c_labels")
         dx = dl.Measure("dx", subdomain_data=c_labels)
 
-        Vh = dl.FunctionSpace(mesh, 'CG', 1)  
-        #Vh = dl.FunctionSpace(mesh, "DG", 0)
-        sO2diff = dl.Constant(1e-6)
-
-        uh, vh = dl.TrialFunction(Vh), dl.TestFunction(Vh)
-        varf = sO2diff* dl.inner(dl.grad(uh), dl.grad(vh))*dl.dx \
-          + uh*vh*dx(Labels['artery']) + uh*vh*dx(Labels['vein']) + uh*vh*dx(Labels['tumor']) + + uh*vh*dx(Labels['tumor_core'])
-        rhs  = materials[Labels['artery']].sat*vh*dx(Labels['artery']) + \
-           materials[Labels['vein']].sat*vh*dx(Labels['vein']) + \
-           materials[Labels['tumor']].sat*vh*dx(Labels['tumor']) + \
-           materials[Labels['tumor_core']].sat*vh*dx(Labels['tumor_core'])
-     
+        Vh = dl.FunctionSpace(mesh, 'CG', 1)   
         u = dl.Function(Vh, name='Saturation')
-        
-        A, b = dl.assemble_system(varf, rhs, [])
-        
-        dl.solve(A, u.vector(), b, 'cg', 'hypre_amg')
-
-        with dl.XDMFFile(cl_args.output+f"so2_{i}.xdmf") as out:
+        u.vector().axpy(1., ref_u.vector())
+    
+        with dl.XDMFFile(cl_args.output+f"so22_{i}.xdmf") as out:
             out.write_checkpoint(u, "so2", append=False)
             
 
