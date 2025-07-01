@@ -52,6 +52,11 @@ if __name__ == "__main__":
     labels = tissueComposition.tissue2label
     opt_prop = io.loadmat('../properties2/opt_prop.mat')
 
+    g = opt_prop['g']
+    mu_s_ref = opt_prop['mu_s_ref']
+    wavelength_ref = opt_prop['wavelength_ref']
+    wavelengths = constants['wavelength']
+
     A = 120 * 1e-6  
     Ap = 3
     B = 4.34/60
@@ -123,7 +128,6 @@ if __name__ == "__main__":
             c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
             fid.read(c_labels, "c_labels")
         dx = dl.Measure("dx", subdomain_data=c_labels, domain = mesh)
-        Vols = [dl.assemble(dl.Constant(1.)*dx(labels[key])) for key in labels.keys()]
 
         Vols = [dl.assemble(dl.Constant(1.)*dx(labels[key])) for key in labels.keys()]
         Vh_m = dl.FunctionSpace(mesh, 'DG', 0)  
