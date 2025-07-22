@@ -72,7 +72,7 @@ if __name__=='__main__':
     parser.add_argument('-hy', default =0.15, help="Grid size y-direction")
     parser.add_argument('-hz', default = 0.15, help="Grid size z-direction")
     #parser.add_argument('-f', '--fname', default = "../dce-moby-lfs/moby_phantom.npz")
-    parser.add_argument('-f', '--fname', default = "/workspace/shared_data/Moby_multi_wave/Refik_Mouse/dynamic_phantom_anatomy/dynamic_phantom_anatomy_1.npy")
+    parser.add_argument('-f', '--fname', default = "/workspace/shared_data/Moby_multi_wave/Refik_Mouse/phantom_anatomy_0.npy")
     #parser.add_argument('-o', '--output', default = "moby_mesh.xdmf")
     parser.add_argument('-o', '--output', default = "/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh_structured.xdmf")
     parser.add_argument('-v', '--verbose',

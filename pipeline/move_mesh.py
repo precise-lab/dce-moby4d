@@ -47,6 +47,10 @@ def move_mesh(ref_mesh, ref_labels, ref_Vh, disp_array, h):
     return mesh, c_labels, d
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Combine phantom elements', fromfile_prefix_chars='@')
+    parser.add_argument('--zmin', default = 175, type = int)
+    parser.add_argument('--zmax', default = 375, type = int)
+    args = parser.parse_args()
     nframes = 200
     h = [0.15, 0.15, 0.15]
     ref_mesh = dl.Mesh()
@@ -65,11 +69,11 @@ if __name__ == "__main__":
     fid_out = dl.XDMFFile("displacement.xdmf")
     fid_out.parameters["functions_share_mesh"] = True
     fid_out.parameters["rewrite_function_mesh"] = False
-    zmin = 175
-    zmax = 375
+    zmin = args.zmin
+    zmax = args.zmax
     #fid_out.write(ref_labels)
 
-    for i in range(84,nframes):
+    for i in range(1,nframes):
         #disp_array = np.load(f"../dce-moby-lfs/motion/motion{i}.npz")["motion"]
         disp_array = np.load(f"/workspace/shared_data/Moby_multi_wave/Refik_Mouse/motion_array/motion{i}.npz")["motion"]
         disp_array = disp_array[:,:,zmin:zmax, :]

@@ -157,7 +157,7 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--fname', default = "/workspace/shared_data/Moby_multi_wave/mesh/")
     parser.add_argument('-o', '--output', default = "/workspace/shared_data/Moby_multi_wave/so2/")
     parser.add_argument('--start_frame',
-                        default=199,
+                        default=0,
                         type=int,
                         help = "First frame index")
     parser.add_argument('--end_frame',
@@ -176,11 +176,18 @@ if __name__ == "__main__":
     for i in range(cl_args.start_frame, cl_args.end_frame):
         print(i)
         mesh = dl.Mesh(dl.MPI.comm_world)
-        with dl.XDMFFile(cl_args.fname + f"moby_mesh{i}.xdmf") as fid:
-            fid.read(mesh)
-            geo_dim = mesh.geometry().dim()
-            c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
-            fid.read(c_labels, "c_labels")
+        if i > 0:
+            with dl.XDMFFile(cl_args.fname + f"moby_mesh{i}.xdmf") as fid:
+                fid.read(mesh)
+                geo_dim = mesh.geometry().dim()
+                c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
+                fid.read(c_labels, "c_labels")
+        else:
+            with dl.XDMFFile("/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh_structured.xdmf") as fid:
+                fid.read(mesh)
+                geo_dim = mesh.geometry().dim()
+                c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
+                fid.read(c_labels, "c_labels")
         dx = dl.Measure("dx", subdomain_data=c_labels)
 
         Vh = dl.FunctionSpace(mesh, 'CG', 1)  

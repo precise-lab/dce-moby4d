@@ -29,6 +29,10 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--mesh', default = "/workspace/shared_data/Moby_multi_wave/mesh/")
     parser.add_argument('--wb', default = 0, type = int)
     parser.add_argument('--nw', default = 1, type = int)
+    parser.add_argument('--zmin', default = 175, type = int)
+    parser.add_argument('--zmax', default = 375, type = int)
+    parser.add_argument('--pzmin', default = 93, type = int)
+    parser.add_argument('--pzmax', default = 107, type = int)
 
     parser.add_argument('--start_frame',
                         default=0,
@@ -52,10 +56,14 @@ if __name__ == "__main__":
     labels = tissueComposition.tissue2label
     opt_prop = io.loadmat('../properties2/opt_prop.mat')
 
-    g = opt_prop['g']
+    """g = opt_prop['g']
     mu_s_ref = opt_prop['mu_s_ref']
     wavelength_ref = opt_prop['wavelength_ref']
     wavelengths = constants['wavelength']
+    print([g[labels[key], 0] for key in labels.keys()])
+    print([mu_s_ref[labels[key], 0] for key in labels.keys()])
+    print([wavelength_ref[labels[key], 0] for key in labels.keys()])
+    assert False"""
 
     A = 120 * 1e-6  
     Ap = 3
@@ -95,8 +103,10 @@ if __name__ == "__main__":
 
 
 
+    h = 0.15
+
     s = 19
-    z_bnds = [0, 200*0.15]
+    z_bnds = [0, (args.zmax - args.zmin)*h]
     source_locations = 1e3*io.loadmat('../optical_modeling/source_locations.mat')['xy']
     source_locations[:,2] *= -1 
     source_locations[:,[0,2]] = s + source_locations[:,[0,2]]#@np.array([[0, 1], [-1, 0]])
@@ -116,17 +126,25 @@ if __name__ == "__main__":
     intensity = 100.
     source_mua =  mu_a_w[wavelengths == args.wavelength][0]
 
-    nmesh = 199
+    nmesh = 200
 
     for mesh_it in range(nmesh):
         if rank == 0:
             print(f"Mesh {mesh_it}")
         mesh = dl.Mesh(comm)
-        with dl.XDMFFile(args.mesh + f"moby_mesh{mesh_it%nmesh+1}.xdmf") as fid:
-            fid.read(mesh)
-            geo_dim = mesh.geometry().dim()
-            c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
-            fid.read(c_labels, "c_labels")
+
+        if mesh_it > 0:
+            with dl.XDMFFile(args.mesh + f"moby_mesh{mesh_it%nmesh+1}.xdmf") as fid:
+                fid.read(mesh)
+                geo_dim = mesh.geometry().dim()
+                c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
+                fid.read(c_labels, "c_labels")
+        else:
+            with dl.XDMFFile(cl_args.mesh + "moby_mesh_structured.xdmf") as fid:
+                fid.read(mesh)
+                geo_dim = mesh.geometry().dim()
+                c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
+                fid.read(c_labels, "c_labels")
         dx = dl.Measure("dx", subdomain_data=c_labels, domain = mesh)
 
         Vols = [dl.assemble(dl.Constant(1.)*dx(labels[key])) for key in labels.keys()]
@@ -170,9 +188,9 @@ if __name__ == "__main__":
         dx_lumped = ufl.dx(metadata={"quadrature_degree": 1, "representation":"quadrature"}, scheme='vertex')
         ds_lumped = ufl.ds(metadata={"quadrature_degree": 1, "representation":"quadrature"}, scheme='vertex')
 
-        h = 0.15
         
-        z_fov = [93*h, 107*h]
+        
+        z_fov = [args.pzmin*h, args.pzmax*h]
         Nx = 248
         xi = np.linspace(.5, (Nx-.5), Nx)*h
         yi = np.linspace(.5, (Nx-.5), Nx)*h
