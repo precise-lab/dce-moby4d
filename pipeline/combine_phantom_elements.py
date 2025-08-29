@@ -34,7 +34,7 @@ if __name__ == "__main__":
     artery = np.transpose(artery, (2,1,0))
 
     tumor = loadmat('/workspace/shared_data/Moby_multi_wave/Refik_Mouse/tumor_phantom.mat')
-    label_tumor = tumor['tumor_phantom']
+    tumor = tumor['tumor_phantom']
 
     phan[vein == 1] = 95
     phan[artery == 1] = 96

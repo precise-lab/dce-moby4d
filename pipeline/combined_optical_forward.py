@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--so2', default = "/workspace/shared_data/Moby_multi_wave/so2/")
     parser.add_argument('-m', '--mesh', default = "/workspace/shared_data/Moby_multi_wave/mesh/")
     parser.add_argument('--wb', default = 0, type = int)
-    parser.add_argument('--nw', default = 1, type = int)
+    parser.add_argument('--nw', default = 8, type = int)
     parser.add_argument('--zmin', default = 175, type = int)
     parser.add_argument('--zmax', default = 375, type = int)
     parser.add_argument('--pzmin', default = 93, type = int)
@@ -86,6 +86,21 @@ if __name__ == "__main__":
     c_perf[t> 0] = (Ktrans*np.convolve(np.exp(-kep*t_pos), ca_tp[t>0])*dt)[:t_pos.shape[0]]
     del t_pos
 
+    import matplotlib.pyplot as plt
+
+    """plt.plot(c_perf, label = "perf")
+    plt.plot(ca_tp, label = "art")
+    plt.legend()"""
+
+    c_perf_dt = (c_perf[1:] - c_perf[:-1])/dt
+    c_perf_dt2 = Ktrans*ca_tp - kep*c_perf
+    plt.plot(c_perf_dt, label = "perf")
+    plt.plot(c_perf_dt2, label = "perf2")
+    plt.legend()
+    plt.savefig("contrast_test.png")
+
+    assert False
+
     
 
     mu_a_b_oxy = np.log(10)*tissueComposition.c_thb_b*constants['e_hbo2']
@@ -126,9 +141,10 @@ if __name__ == "__main__":
     intensity = 100.
     source_mua =  mu_a_w[wavelengths == args.wavelength][0]
 
-    nmesh = 200
+    #nmesh = 200
+    nmesh = 50
 
-    for mesh_it in range(nmesh):
+    for mesh_it in range(31,nmesh):
         if rank == 0:
             print(f"Mesh {mesh_it}")
         mesh = dl.Mesh(comm)
@@ -140,7 +156,7 @@ if __name__ == "__main__":
                 c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
                 fid.read(c_labels, "c_labels")
         else:
-            with dl.XDMFFile(cl_args.mesh + "moby_mesh_structured.xdmf") as fid:
+            with dl.XDMFFile(args.mesh + "moby_mesh_structured.xdmf") as fid:
                 fid.read(mesh)
                 geo_dim = mesh.geometry().dim()
                 c_labels = dl.MeshFunction('size_t', mesh, geo_dim)

@@ -67,9 +67,9 @@ if __name__ == "__main__":
         m_trial, m_test = dl.TrialFunction(Vh), dl.TestFunction(Vh)
         varf_m = m_trial*m_test*dx
 
-        rhs =  dl.Constant(0)*m_test*dx + dl.Constant(1)*m_test*dx(labels['artery']) + dl.Constant(2)*m_test*dx(labels['tumor']) + dl.Constant(3)*m_test*dx(labels['tumor_core'])
+        rhs =  dl.Constant(1)*m_test*dx(labels['artery']) + dl.Constant(2)*m_test*dx(labels['tumor']) + dl.Constant(3)*m_test*dx(labels['tumor_core'])
         A, b = dl.assemble_system(varf_m, rhs, [])
-        Mask = dl.Function(Vh, name = 'mu_sp')
+        Mask = dl.Function(Vh, name = 'mask')
         dl.solve(A, Mask.vector(), b, 'cg', 'jacobi')
 
         
@@ -86,6 +86,6 @@ if __name__ == "__main__":
         mask_np = (B*Mask.vector()).gather_on_zero()
 
         if rank == 0:
-            io.savemat(cl_args.output + f"mask_{i}.mat", {'mask': np.reshape(mask_np, XX.shape).astype(int)}, do_compression=True)
+            io.savemat(cl_args.output + f"mask_{i}.mat", {'mask': np.reshape(mask_np, XX.shape)}, do_compression=True)
 
 
