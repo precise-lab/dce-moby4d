@@ -1,24 +1,32 @@
 import numpy as np
 import os
 import csv
-from enum import Enum
 
-class Component(Enum):
-    BLOOD = 0
-    WATER = 1
-    NCOMP = 2
+
+
 
 class TissueComposition:
-    def __init__(self, volume_fractions: dict, tissue2label: dict, label2glabel: dict):
-        self.volume_fractions = volume_fractions
-        self.tissue2label     = tissue2label
-        self.label2glabel     = label2glabel
+    def __init__(self,
+                 volume_fractions: dict,
+                 ref_reduced_scattering: dict,
+                 ref_wavelength: dict,
+                 b_exponent: dict,
+                 tissue2label: dict,
+                 label2glabel: dict):
+        
+        self.volume_fractions   = volume_fractions
+        self.ref_reduced_scattering = ref_reduced_scattering
+        self.ref_wavelength     = ref_wavelength
+        self.b_exponent         = b_exponent
+        self.tissue2label       = tissue2label
+        self.label2glabel       = label2glabel
 
         # Normal hemoglobin mass concentration ranges of mice
         self.mc_hb = 150 # [g/L]
 
         # Molecular weight of mammalian hemoglobin
         self.mw_hb = 64500 # [g/mol]
+
 
     @property
     def c_thb_b(self):
@@ -38,6 +46,9 @@ class TissueComposition:
         reader = csv.DictReader(fid)
         
         volume_fractions = {}
+        ref_reduced_scattering = {}
+        ref_wavelength = {}
+        b_exponent  = {}
         tissue2label = {}
         label2glabel = {}
         for row in reader:
@@ -46,11 +57,14 @@ class TissueComposition:
             group_label = int(row['group_label'])
             tissue2label[tissue] = label
             label2glabel[label] = group_label
-            volume_fractions[label] = (row['blood'], row['water'])
+            volume_fractions[label] = {"blood": float( row['blood'] ), "water": float( row['water'] )}
+            ref_reduced_scattering[label] = float( row['mu_s_ref'] ) * (1. - float(row['g']))
+            ref_wavelength[label] = float(row['ref_wavelength'])
+            b_exponent = float(row['b_exponent'])
 
-        return cls(volume_fractions, tissue2label, label2glabel)
+        return cls(volume_fractions, ref_reduced_scattering, ref_wavelength, b_exponent, tissue2label, label2glabel)
     
-    def volumeFractionMap(self, label_map: np.array, comp: Component):
+    def volumeFractionMap(self, label_map: np.array, comp: str):
 
         unique_labels = np.unique(label_map[:])
         for ul in unique_labels[:]:
@@ -60,7 +74,19 @@ class TissueComposition:
         for (label, val) in self.volume_fractions.items():
             vf[label_map==label] = val[comp]
 
-        return val
+        return vf
+    
+    def reducedScatteringMap(self, label_map: np.array, wavelength: float):
+        unique_labels = np.unique(label_map[:])
+        for ul in unique_labels[:]:
+            assert ul in self.ref_reduced_scattering
+
+        rs = np.zeros_like(label_map, dtype=np.float64)
+        for label in self.ref_reduced_scattering.keys():
+            rrs = self.ref_reduced_scattering[label]
+            rw  = self.ref_wavelength[label]
+            b = self.b_exponent[label]
+            rs[label_map==label] = rrs*( (rw/wavelength)**b )
 
     def gLabelMap(self, label_map: np.array):
 
