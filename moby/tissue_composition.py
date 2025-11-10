@@ -76,6 +76,9 @@ class TissueComposition:
 
         return vf
     
+    def getVolumeFraction(self, label: int, comp: str):
+        return self.volume_fractions[label][comp]
+    
     def reducedScatteringMap(self, label_map: np.array, wavelength: float):
         unique_labels = np.unique(label_map[:])
         for ul in unique_labels[:]:
@@ -83,10 +86,13 @@ class TissueComposition:
 
         rs = np.zeros_like(label_map, dtype=np.float64)
         for label in self.ref_reduced_scattering.keys():
+            rs[label_map==label] = self.getReducedScattering(label, wavelength)
+
+    def getReducedScattering(self, label: int, wavelength: float):
             rrs = self.ref_reduced_scattering[label]
             rw  = self.ref_wavelength[label]
             b = self.b_exponent[label]
-            rs[label_map==label] = rrs*( (rw/wavelength)**b )
+            return rrs*( (rw/wavelength)**b )
 
     def gLabelMap(self, label_map: np.array):
 

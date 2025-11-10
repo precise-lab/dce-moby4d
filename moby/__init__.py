@@ -1,4 +1,8 @@
-from .tissue_composition import TissueComposition, Component
+from .tissue_composition import TissueComposition
 from .pkModel import PKModel
-from .chomophore_decomposition import ChromophoreDecomposition
+from .chromophore_decomposition import ChromophoreDecomposition
+
 from .femPhantom import FEMPhantom
+from .source import ConeBeam, SlitBeam, BoundaryQ0Source
+
+    

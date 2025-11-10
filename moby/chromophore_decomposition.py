@@ -5,7 +5,7 @@ import numpy as np
 
 class Chromophore(Enum):
     HB = 0
-    HB02 = 1
+    HBO2 = 1
     WATER = 2
     LIPID = 3
     MELATONIN = 4
@@ -45,15 +45,15 @@ class ChromophoreDecomposition:
             return cls(wavelength, spectra, units)
         
     def get_pure_mu_a(self, wavelength: float, c_thb_b: float, c_CA_b: float, c_list: list[Chromophore]):
-        out = np.array(len(c_list))
+        out = {}
         s = self.spectra[ self.wavelength==wavelength ] #FIXME use interpolation
-        for c, i in enumerate(c_list):
+        for c in c_list:
             if c in [Chromophore.HB, Chromophore.HB02]:
-                out[i] = np.log(10.)*c_thb_b*s[c]
+                out[c] = np.log(10.)*c_thb_b*s[c]
             elif c == Chromophore.CA:
-                out[i] = np.log(10.)*c_CA_b*s[c]
+                out[c] = np.log(10.)*c_CA_b*s[c]
             else:
-                out[i] = s[c]
+                out[c] = s[c]
 
         return out
 
