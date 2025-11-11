@@ -1,7 +1,8 @@
 import dolfin as dl
 import ufl
 import numpy as np
-import scipy.io as io
+import pyvista as pv
+import h5py
 
 import argparse
 
@@ -10,13 +11,11 @@ from timeit import default_timer as timer
 import sys
 import os
 
-sys.path.append("../")
-import moby
-import time
-
-
 sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib/") )
 import hippylib as hp
+
+sys.path.append("../")
+import moby
 
 def get_boundingbox(Vh):
       x = dl.interpolate(dl.Expression("x[0]", degree=1), Vh)
@@ -35,7 +34,12 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    comm = dl.MPI.comm_world
+
     wavelength = args.wavelength
+    imaging_time = 0.
+    fov = np.array([[0., 37.2], [0., 37.2], [26.25, 56.25]])
+    N = [248, 248, 200]
 
     tissueComposition = moby.TissueComposition.create()
     chromophores = [moby.Chromophore.HB, moby.Chromophore.HBO2, moby.Chromophore.WATER, moby.Chromophore.CA]
@@ -45,10 +49,10 @@ if __name__ == "__main__":
     kep     = 0.75/60  # 1/seconds  
     aif = moby.AIF()
     pkModel = moby.PKModel(aif, time, Ktrans, kep)
-    chromophoresDec = moby.ChromophoreDecomposition.fromFile()
+    chromophoresDec = moby.ChromophoreDecomposition.fromFile(verbose=(0==comm.rank))
     chromophoresDec.setThBConcentration(tissueComposition.c_thb_b)
 
-    comm = dl.MPI.comm_world
+
     mesh = dl.Mesh(comm)
 
     with dl.XDMFFile(args.mesh) as fid:
@@ -58,7 +62,11 @@ if __name__ == "__main__":
         fid.read(c_labels, "c_labels")
 
     Vh_phi = dl.FunctionSpace(mesh, "CG", 1)
-    Vh_m  = dl.FunctionSpace(mesh, "DG", 1)
+    Vh_m  = dl.FunctionSpace(mesh, "DG", 0)
+    Vh_p0 = dl.FunctionSpace(mesh, "DG", 1)
+
+    resampler = moby.CartesianGridResampler(Vh_p0, fov, N, subsampling=1)
+
     b_box = get_boundingbox(Vh_phi)
     if 0==comm.rank:
         print(b_box)
@@ -92,7 +100,7 @@ if __name__ == "__main__":
     sat_map = {"artery": 0.98, "vein": 0.7, "tumor": .371, "tumor_core": 0}
     so2 = femPhantom.compute_oxygen_saturation(sat_map )
 
-    mu_a = femPhantom.compute_mu_a(wavelength, 0., so2)
+    mu_a = femPhantom.compute_mu_a(wavelength, imaging_time, so2)
     mu_sp = femPhantom.compute_mu_sp(wavelength)
     D = 1./(3.*(mu_a + mu_sp))
 
@@ -114,7 +122,7 @@ if __name__ == "__main__":
         print("Max fluence: ", max_fluence)
 
 
-    p0 = dl.project(mu_a*fluence, Vh_m, solver_type='cg', preconditioner_type='jacobi')
+    p0 = dl.project(mu_a*fluence, Vh_p0, solver_type='cg', preconditioner_type='jacobi')
     p0.rename("p0", "p0")
 
     with dl.XDMFFile(comm, "out.xdmf") as fid:
@@ -124,6 +132,22 @@ if __name__ == "__main__":
             fid.write(mu_a, 0)
             fid.write(mu_sp, 0)
             fid.write(p0, 0)
+
+    p0_np = resampler(p0)
+    if 0 == comm.rank:
+        pl = pv.Plotter()
+        pl.add_volume(p0_np, cmap='viridis', opacity="sigmoid")
+        pl.show(screenshot='p0.png')
+
+    if 0 == comm.rank:
+        with h5py.File("p0.h5", "w") as fid:
+             d_set = fid.create_dataset("p0", data=p0_np, compression="lzf")
+             h = (fov[:,1] - fov[:,0])/np.array(N)
+             d_set.attrs["spacing"] = h
+             d_set.attrs["spacing_units"] = "mm"
+             d_set.attrs["fov"] = fov
+             d_set.attrs["time"] = imaging_time
+             d_set.attrs["wavelength"] = wavelength
             
 
 

@@ -24,9 +24,17 @@ class PKModel:
         dt = time[1] - time[0]
         self.time = time
         self.ca_blood = self.aif.eval(time)
-        self.ca_viabletumor_perf = (self.Ktrans*np.convolve(np.exp(-self.kep*time), self.ca_blood)*dt)[:time.shape[0]]
-        self.ca_core_perf        = (self.Ktrans*np.convolve(np.exp(-self.kep*time), self.ca_blood)*dt)[:time.shape[0]]
-        self.ca_liver_perf       = np.maximum(2.*(aif.C - self.ca_blood), 0)
+        aif_peak_index = np.argmax(self.ca_blood)
+        self.aif_peak_time = self.time[aif_peak_index]
+        t = time[time > aif.T0]
+        self.ca_viabletumor_perf = np.zeros_like(self.ca_blood)
+        self.ca_viabletumor_perf[time > aif.T0] = (self.Ktrans*np.convolve(np.exp(-self.kep*t), self.ca_blood[time > aif.T0])*dt)[:t.shape[0]]
+        self.ca_core_perf        = np.zeros_like(self.ca_blood)
+        self.ca_core_perf[time > aif.T0]        = (self.Ktrans*np.convolve(np.exp(-self.kep*t), self.ca_blood[time > aif.T0])*dt)[:t.shape[0]]
+
+        self.ca_liver_perf                          = np.zeros_like(self.ca_blood)
+        self.ca_liver_perf[time>self.aif_peak_time] = np.maximum(2.*(aif.C - self.ca_blood[time>self.aif_peak_time]), 0)
+        
 
     def __call__(self, t: float):
         return [np.interp(t, self.time, self.ca_blood),
