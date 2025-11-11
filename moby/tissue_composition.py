@@ -60,7 +60,7 @@ class TissueComposition:
             volume_fractions[label] = {"blood": float( row['blood'] ), "water": float( row['water'] )}
             ref_reduced_scattering[label] = float( row['mu_s_ref'] ) * (1. - float(row['g']))
             ref_wavelength[label] = float(row['ref_wavelength'])
-            b_exponent = float(row['b_exponent'])
+            b_exponent[label] = float(row['b_exponent'])
 
         return cls(volume_fractions, ref_reduced_scattering, ref_wavelength, b_exponent, tissue2label, label2glabel)
     

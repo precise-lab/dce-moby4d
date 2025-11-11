@@ -29,7 +29,7 @@ class FEMPhantom:
         self.vols = [dl.assemble(dl.Constant(1.)*self.dx(labels[key])) for key in labels.keys()]
 
         #define mass matrix DG0
-        trial_DG, test_DG = ufl.TrialFunction(self.Vh_DG0), ufl.TestFunction(self.Vh_DG0)
+        trial_DG, test_DG = dl.TrialFunction(self.Vh_DG0), dl.TestFunction(self.Vh_DG0)
         varf = ufl.inner(trial_DG, test_DG)*self.dx
         self.M_DG0 = dl.assemble(varf)
         
@@ -38,7 +38,7 @@ class FEMPhantom:
 
         labels = self.tissueComposition.tissue2label
         sO2diff = dl.Constant(1e-6)
-        uh, vh = ufl.TrialFunction(self.Vh_P1), ufl.TestFunction(self.Vh_P1)
+        uh, vh = dl.TrialFunction(self.Vh_CG1), dl.TestFunction(self.Vh_CG1)
         varf = sO2diff* ufl.inner(ufl.grad(uh), ufl.grad(vh))*self.dx
         rhs = dl.Constant(0.)*vh*self.dx
 
@@ -60,9 +60,10 @@ class FEMPhantom:
         rhs = dl.Constant(0.)*test*self.dx
         for key, vol in zip(labels.keys(), self.vols):
             if vol > 0:
-                rhs += dl.Constant(self.tissue_composition.getReducedScattering(labels[key], wavelength)*test*self.dx(labels[key]))
-        b = dl.assemble_system(rhs)
-        out = dl.Function(self.Vh_DG, name = 'mu_sp')
+                mu_sp_tissue = self.tissueComposition.getReducedScattering(labels[key], wavelength)
+                rhs += dl.Constant(mu_sp_tissue)*test*self.dx(labels[key])
+        b = dl.assemble(rhs)
+        out = dl.Function(self.Vh_DG0, name = 'mu_sp')
         dl.solve(self.M_DG0, out.vector(), b, 'cg', 'jacobi')
 
         return out
@@ -73,21 +74,21 @@ class FEMPhantom:
         rhs = dl.Constant(0.)*test*self.dx
 
 
-        aif, c_perf = self.pkModel.eval(time)
-        c_thb_b = self.tissueComposition.c_thb_b
-        c_CA_b  = self.pkModel.c_CA_b
+        ca_aif, ca_viabletumor_perf, ca_core_perf, ca_liver_perf = self.pkModel(time)
 
-        pure_mu_a = self.chromophoreDecomposition.get_pure_mu_a(wavelength, c_thb_b, c_CA_b, self.chromophore_list)
+        pure_mu_a = self.chromophoreDecomposition.get_pure_mu_a(wavelength, self.chromophore_list)
 
         for key, vol in zip(labels.keys(), self.vols):
             if vol > 0:
                 f_b = self.tissueComposition.getVolumeFraction(labels[key], "blood")
                 f_w = self.tissueComposition.getVolumeFraction(labels[key], "water")
-                f_ca = f_b*aif
+                f_ca = f_b*ca_aif
                 if key == 'tumor':
-                    f_ca +=  (1. - f_b)*c_perf
+                    f_ca +=  (1. - f_b)*ca_viabletumor_perf
                 if key == 'tumor_core':
-                    f_ca +=  0.5*(1. - f_b)*c_perf
+                    f_ca +=  (1. - f_b)*ca_core_perf
+                if key == 'liver':
+                    f_ca += (1. - f_b)*ca_liver_perf
                         
                 s_coeff = (pure_mu_a[Chromophore.HBO2]-pure_mu_a[Chromophore.HB])*f_b
                 c_coeff = pure_mu_a[Chromophore.HB]*f_b \
@@ -95,7 +96,7 @@ class FEMPhantom:
                           + pure_mu_a[Chromophore.CA]*f_ca
                 rhs += (dl.Constant(s_coeff)*sO2 + dl.Constant(c_coeff))*test*self.dx(labels[key])
                 
-        b = dl.assemble_system(rhs)
+        b = dl.assemble(rhs)
         out = dl.Function(self.Vh_DG0, name = 'mu_a')
         dl.solve(self.M_DG0, out.vector(), b, 'cg', 'jacobi')
 
