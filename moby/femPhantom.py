@@ -100,6 +100,8 @@ class FEMPhantom:
         out = dl.Function(self.Vh_DG0, name = 'mu_a')
         dl.solve(self.M_DG0, out.vector(), b, 'cg', 'jacobi')
 
+        return out
+
     def dumpTissueVolumes(self, fname):
         labels = self.tissueComposition.tissue2label
         fieldnames = ["tissue", "label", "volume"]
