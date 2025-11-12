@@ -32,6 +32,7 @@ class FEMPhantom:
         trial_DG, test_DG = dl.TrialFunction(self.Vh_DG0), dl.TestFunction(self.Vh_DG0)
         varf = ufl.inner(trial_DG, test_DG)*self.dx
         self.M_DG0 = dl.assemble(varf)
+
         
 
     def compute_oxygen_saturation(self, tissue_oxygen_saturation: dict):
@@ -101,6 +102,18 @@ class FEMPhantom:
         dl.solve(self.M_DG0, out.vector(), b, 'cg', 'jacobi')
 
         return out
+    
+    def computeIndicatorFunction(self, key):
+        labels = self.tissueComposition.tissue2label
+        test = dl.TestFunction(self.Vh_DG0)
+        rhs = test*self.dx(labels[key])
+        b = dl.assemble(rhs)
+        out = dl.Function(self.Vh_DG0, name = 'indicator_'+key)
+        dl.solve(self.M_DG0, out.vector(), b, 'cg', 'jacobi')
+
+        return out
+
+        
 
     def dumpTissueVolumes(self, fname):
         labels = self.tissueComposition.tissue2label

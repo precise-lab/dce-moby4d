@@ -65,7 +65,8 @@ if __name__ == "__main__":
     Vh_m  = dl.FunctionSpace(mesh, "DG", 0)
     Vh_p0 = dl.FunctionSpace(mesh, "DG", 1)
 
-    resampler = moby.CartesianGridResampler(Vh_p0, fov, N, subsampling=1)
+    resampler_p0 = moby.CartesianGridResampler(Vh_p0, fov, N, subsampling=1)
+    resampler_ind = moby.CartesianGridResampler(Vh_m, fov, N, subsampling=1)
 
     b_box = get_boundingbox(Vh_phi)
     if 0==comm.rank:
@@ -133,11 +134,26 @@ if __name__ == "__main__":
             fid.write(mu_sp, 0)
             fid.write(p0, 0)
 
-    p0_np = resampler(p0)
+    p0_np = resampler_p0(p0)
     if 0 == comm.rank:
         pl = pv.Plotter()
         pl.add_volume(p0_np, cmap='viridis', opacity="sigmoid")
         pl.show(screenshot='p0.png')
+
+    indicator_np = {}
+    for key in ["artery", "tumor", "tumor_core", "liver"]:
+         indicator = femPhantom.computeIndicatorFunction(key)
+         indicator_np[key] = resampler_ind(indicator)
+
+    if 0 == comm.rank:
+        pl = pv.Plotter(shape=(1, 3), border=False)
+        pl.subplot(0,0)
+        pl.add_volume(indicator_np["artery"], cmap='viridis', opacity="sigmoid")
+        pl.subplot(0,1)
+        pl.add_volume(indicator_np["tumor"]+indicator_np["tumor_core"], cmap='viridis', opacity="sigmoid")
+        pl.subplot(0,2)
+        pl.add_volume(indicator_np["liver"], cmap='viridis', opacity="sigmoid")
+        pl.show(screenshot='indicators.png')
 
     if 0 == comm.rank:
         with h5py.File("p0.h5", "w") as fid:
@@ -148,6 +164,12 @@ if __name__ == "__main__":
              d_set.attrs["fov"] = fov
              d_set.attrs["time"] = imaging_time
              d_set.attrs["wavelength"] = wavelength
+             for key in indicator_np:
+                  i_set = fid.create_dataset(key, data=indicator_np[key], compression="lzf")
+                  i_set.attrs["spacing"] = h
+                  i_set.attrs["spacing_units"] = "mm"
+                  i_set.attrs["fov"] = fov
+                  i_set.attrs["time"] = imaging_time
             
 
 
