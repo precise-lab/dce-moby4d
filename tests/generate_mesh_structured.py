@@ -18,14 +18,12 @@ from timeit import default_timer as timer
 
 import sys
 import os
-
+sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib") )
 sys.path.append("../")
 import moby
 
 import h5py
 
-
-sys.path.append( os.environ.get('HIPPYLIB_BASE_DIR', "../../hippylib") )
 import hippylib as hp
 
 import os
