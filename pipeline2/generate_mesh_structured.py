@@ -67,8 +67,8 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Generate unstructured mesh', fromfile_prefix_chars='@')
     parser.add_argument('-f', '--fname', default = "phantom_anatomy_0.h5")
     parser.add_argument('-o', '--output', default = "moby_mesh.xdmf")
-    parser.add_argument('--zmin', default = 150, type = int)
-    parser.add_argument('--zmax', default = 400, type = int)
+    parser.add_argument('--zmin', default = 140, type = int)
+    parser.add_argument('--zmax', default = 410, type = int)
     #parser.add_argument('-o', '--output', default = "/workspace/shared_data/Moby_multi_wave/mesh/moby_mesh_structured.xdmf")
 
     cl_args = parser.parse_args()

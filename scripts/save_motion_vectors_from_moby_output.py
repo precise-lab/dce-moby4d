@@ -67,6 +67,10 @@ if __name__=="__main__":
 		mset.attrs["units"] = "mm"
 		mset.attrs["created from"] = os.path.abspath("motion_vectors_text_moby_output/moby_vec_frame1_to_frame{}.txt")
 		mset.attrs["spacing"] = h
+		iset.attrs["dt"] = 0.05
+		iset.attrs["units"] = "mm"
+		iset.attrs["created from"] = os.path.abspath("motion_vectors_text_moby_output/moby_vec_frame1_to_frame{}.txt")
+		iset.attrs["spacing"] = h
 		mset[:,:,:,:,0] = np.zeros(m_chunks[0:-1], dtype=np.float32)
 		iset[:,:,:,0] = -np.ones(i_chunks[0:-1], dtype=np.int8)
 		for iframe in range(1,nframes):

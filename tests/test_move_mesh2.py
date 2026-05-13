@@ -45,21 +45,32 @@ if __name__ == "__main__":
     mover = moby.MeshMover(mesh, args.disp, verbose=True)
 
     dt = mover.dt
-    nframes = mover.nframes//4
+    nframes = 3 #mover.nframes
     times = np.arange(0, dt*nframes - 0.5*dt, dt)
     pos = np.zeros((nframes, 3))
 
-    for i in np.arange(nframes):
-         t = i*dt
-         times[i] = t
-         if comm.rank == 0:
-             print(f"Time {t} s")
-         mover.move(t)
 
-         x = ufl.SpatialCoordinate(mesh)
-         vol = dl.assemble(dl.Constant(1.)*dx(97)+dl.Constant(1.)*dx(98))
-         for jcoor in range(3):
-            pos[i,jcoor] = dl.assemble(x[jcoor]*dx(97) + x[jcoor]*dx(98))/vol
+    with dl.XDMFFile(comm, "out.xdmf") as fid:
+        fid.parameters["functions_share_mesh"] = True
+        fid.parameters["rewrite_function_mesh"] = False
+
+        for i in np.arange(nframes):
+            t = i*dt
+            if comm.rank == 0:
+                print(f"Time {t} s")
+            
+            imposed = mover.get_imposed(t)
+            disp   = mover.compute_displacement(t)
+            fid.write(imposed, t)
+            fid.write(disp, t)
+
+
+            vol = dl.assemble(dl.Constant(1.)*dx(97)+dl.Constant(1.)*dx(98))
+            for jcoor in range(3):
+                ej_np = np.zeros(3)
+                ej_np[jcoor] = 1
+                ej = dl.Constant(tuple(ej_np[:]))
+                pos[i,jcoor] = dl.assemble(ufl.inner(ej,disp)*dx(97) + ufl.inner(ej,disp)*dx(98))/vol
 
     if comm.rank == 0:
         plt.plot(times, pos[:,0]-pos[0,0], label = 'X-pos')
@@ -67,6 +78,9 @@ if __name__ == "__main__":
         plt.plot(times, pos[:,2]-pos[0,2], label = 'Z-pos')
         plt.legend()
         plt.show()
+
+    np.savetxt('lesion_displacement.txt', np.hstack([times.reshape(nframes,1), pos]) )
+
 
 
  

@@ -30,18 +30,21 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='test_fluence', fromfile_prefix_chars='@')
     parser.add_argument('-w', '--wavelength', default = 800, type = float)
-    parser.add_argument('-t', '--imaging_time', default=0, type=float)
+    parser.add_argument('-p', '--phase', default=0, type=int)
     parser.add_argument('-m', '--mesh', default = "moby_mesh.xdmf")
-    parser.add_argument('-d', '--disp', default = '/workspace/shared_data/Moby_multi_wave/Refik_Mouse/motion_vectors.h5')
+    parser.add_argument('-d', '--disp', default = 'motion_vectors.h5')
     
     args = parser.parse_args()
 
     comm = dl.MPI.comm_world
 
     wavelength = args.wavelength
-    imaging_time = args.imaging_time
+    resp_phase = args.phase
+
     fov = np.array([[0., 37.2], [0., 37.2], [26.25, 56.25]])
     N = [248, 248, 200]
+    start_time = -36.
+    end_time   = 684.01
 
     tissueComposition = moby.TissueComposition.create()
     chromophores = [moby.Chromophore.HB, moby.Chromophore.HBO2, moby.Chromophore.WATER, moby.Chromophore.CA]
@@ -65,9 +68,9 @@ if __name__ == "__main__":
 
     mover = moby.MeshMover(mesh, args.disp, verbose=True)
     dt = mover.dt
-    nframes = mover.nframes
+    number_resp_phases = mover.nframes
 
-    mover.move(imaging_time)
+    mover.move(dt*resp_phase)
 
     Vh_phi = dl.FunctionSpace(mesh, "CG", 1)
     Vh_m  = dl.FunctionSpace(mesh, "DG", 0)
@@ -108,76 +111,69 @@ if __name__ == "__main__":
     femPhantom = moby.FEMPhantom(Vh_m, Vh_phi, c_labels, tissueComposition, chromophoresDec, pkModel)
     sat_map = {"artery": 0.98, "vein": 0.7, "tumor": .371, "tumor_core": 0}
     so2 = femPhantom.compute_oxygen_saturation(sat_map )
-
-    mu_a = femPhantom.compute_mu_a(wavelength, imaging_time, so2)
     mu_sp = femPhantom.compute_mu_sp(wavelength)
-    D = 1./(3.*(mu_a + mu_sp))
-
-    phi_trial, phi_test = dl.TrialFunction(Vh_phi), dl.TestFunction(Vh_phi)
-    Aform = D*ufl.inner(ufl.grad(phi_trial), ufl.grad(phi_test))*dx_diff  \
-                    + ufl.inner(mu_a*phi_trial, phi_test)*dx_lumped \
-                    + ufl.inner(dl.Constant(0.5)*phi_trial, phi_test)*ds_lumped
-    bform = ufl.inner(dl.Constant(0.5)*illumination, phi_test)*ds_lumped
-
-                    
-    fluence = dl.Function(Vh_phi, name="Fluence")
-    A,b = dl.assemble_system(Aform, bform)
-    Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
-    Asolver.set_operator(A)
-    Asolver.solve(fluence.vector(), b)
-
-    max_fluence = fluence.vector().norm("linf")
-    if 0==comm.rank:
-        print("Max fluence: ", max_fluence)
-
-
-    p0 = dl.project(mu_a*fluence, Vh_p0, solver_type='cg', preconditioner_type='jacobi')
-    p0.rename("p0", "p0")
-
-    with dl.XDMFFile(comm, "out.xdmf") as fid:
-            fid.parameters["functions_share_mesh"] = True
-            fid.parameters["rewrite_function_mesh"] = False
-            fid.write(fluence,0)
-            fid.write(mu_a, 0)
-            fid.write(mu_sp, 0)
-            fid.write(p0, 0)
-
-    p0_np = resampler_p0(p0)
-    if 0 == comm.rank:
-        pl = pv.Plotter()
-        pl.add_volume(p0_np, cmap='viridis', opacity="sigmoid")
-        pl.show(screenshot='p0.png')
-
+ 
     indicator_np = {}
     for key in ["artery", "tumor", "tumor_core", "liver"]:
-         indicator = femPhantom.computeIndicatorFunction(key)
-         indicator_np[key] = resampler_ind(indicator)
+        indicator = femPhantom.computeIndicatorFunction(key)
+        indicator_np[key] = resampler_ind(indicator)
 
     if 0 == comm.rank:
-        pl = pv.Plotter(shape=(1, 3), border=False)
-        pl.subplot(0,0)
-        pl.add_volume(indicator_np["artery"], cmap='viridis', opacity="sigmoid")
-        pl.subplot(0,1)
-        pl.add_volume(indicator_np["tumor"]+indicator_np["tumor_core"], cmap='viridis', opacity="sigmoid")
-        pl.subplot(0,2)
-        pl.add_volume(indicator_np["liver"], cmap='viridis', opacity="sigmoid")
-        pl.show(screenshot='indicators.png')
+        fname = "indicator/indicator_{%04d}".format(resp_phase)
+        spacing_indicator = (fov[:,1] - fov[:,0])/np.array(N)
+        with h5py.File(fname, "w") as fid:
+            for key in indicator_np:
+                i_set = fid.create_dataset(key, data=indicator_np[key], compression="lzf")
+                i_set.attrs["spacing"] = h
+                i_set.attrs["spacing_units"] = "mm"
+                i_set.attrs["fov"] = fov
+                i_set.attrs["phase"] = resp_phase
+                i_set.attrs["num_phases"] = number_resp_phases
+                i_set.attrs["dt"] = dt
 
-    if 0 == comm.rank:
-        with h5py.File("p0.h5", "w") as fid:
-             d_set = fid.create_dataset("p0", data=p0_np, compression="lzf")
-             h = (fov[:,1] - fov[:,0])/np.array(N)
-             d_set.attrs["spacing"] = h
-             d_set.attrs["spacing_units"] = "mm"
-             d_set.attrs["fov"] = fov
-             d_set.attrs["time"] = imaging_time
-             d_set.attrs["wavelength"] = wavelength
-             for key in indicator_np:
-                  i_set = fid.create_dataset(key, data=indicator_np[key], compression="lzf")
-                  i_set.attrs["spacing"] = h
-                  i_set.attrs["spacing_units"] = "mm"
-                  i_set.attrs["fov"] = fov
-                  i_set.attrs["time"] = imaging_time
+
+    counter = resp_phase
+
+    for imaging_time in np.arange(start_time+resp_phase*dt, end_time):
+        mu_a = femPhantom.compute_mu_a(wavelength, imaging_time, so2)
+        D = 1./(3.*(mu_a + mu_sp))
+        
+        phi_trial, phi_test = dl.TrialFunction(Vh_phi), dl.TestFunction(Vh_phi)
+        Aform = D*ufl.inner(ufl.grad(phi_trial), ufl.grad(phi_test))*dx_diff  \
+                    + ufl.inner(mu_a*phi_trial, phi_test)*dx_lumped \
+                    + ufl.inner(dl.Constant(0.5)*phi_trial, phi_test)*ds_lumped
+         
+        bform = ufl.inner(dl.Constant(0.5)*illumination, phi_test)*ds_lumped
+
+                    
+        fluence = dl.Function(Vh_phi, name="Fluence")
+        A,b = dl.assemble_system(Aform, bform)
+        Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
+        Asolver.set_operator(A)
+        Asolver.solve(fluence.vector(), b)
+
+        max_fluence = fluence.vector().norm("linf")
+        if 0==comm.rank:
+            print(f"Counter: {counter}; Time: {imaging_time}; Max fluence: {max_fluence}")
+
+
+        p0 = dl.project(mu_a*fluence, Vh_p0, solver_type='cg', preconditioner_type='jacobi')
+        p0.rename("p0", "p0")
+        
+        p0_np = resampler_p0(p0)
+        
+        if 0 == comm.rank:
+            fname = "p0/p0_{%04d}".format(counter)
+            with h5py.File(fname, "w") as fid:
+                d_set = fid.create_dataset("p0", data=p0_np, compression="lzf")
+                h = (fov[:,1] - fov[:,0])/np.array(N)
+                d_set.attrs["spacing"] = h
+                d_set.attrs["spacing_units"] = "mm"
+                d_set.attrs["fov"] = fov
+                d_set.attrs["time"] = imaging_time
+                d_set.attrs["wavelength"] = wavelength
+
+        counter = counter + number_resp_phases
             
 
 
