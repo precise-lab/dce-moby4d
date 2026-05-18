@@ -4,6 +4,7 @@ import numpy as np
 import pyvista as pv
 import h5py
 
+
 import argparse
 
 from timeit import default_timer as timer
@@ -70,7 +71,8 @@ if __name__ == "__main__":
     dt = mover.dt
     number_resp_phases = mover.nframes
 
-    mover.move(dt*resp_phase)
+    if resp_phase > 0:
+        mover.move(dt*resp_phase)
 
     Vh_phi = dl.FunctionSpace(mesh, "CG", 1)
     Vh_m  = dl.FunctionSpace(mesh, "DG", 0)
@@ -119,12 +121,12 @@ if __name__ == "__main__":
         indicator_np[key] = resampler_ind(indicator)
 
     if 0 == comm.rank:
-        fname = "indicator/indicator_{%04d}".format(resp_phase)
+        fname = f"indicator/indicator_{resp_phase:05d}.h5"
         spacing_indicator = (fov[:,1] - fov[:,0])/np.array(N)
         with h5py.File(fname, "w") as fid:
             for key in indicator_np:
                 i_set = fid.create_dataset(key, data=indicator_np[key], compression="lzf")
-                i_set.attrs["spacing"] = h
+                i_set.attrs["spacing"] = spacing_indicator
                 i_set.attrs["spacing_units"] = "mm"
                 i_set.attrs["fov"] = fov
                 i_set.attrs["phase"] = resp_phase
@@ -134,7 +136,8 @@ if __name__ == "__main__":
 
     counter = resp_phase
 
-    for imaging_time in np.arange(start_time+resp_phase*dt, end_time):
+    for imaging_time in np.arange(start_time+resp_phase*dt, end_time, dt*number_resp_phases):
+        tic = timer()
         mu_a = femPhantom.compute_mu_a(wavelength, imaging_time, so2)
         D = 1./(3.*(mu_a + mu_sp))
         
@@ -153,17 +156,18 @@ if __name__ == "__main__":
         Asolver.solve(fluence.vector(), b)
 
         max_fluence = fluence.vector().norm("linf")
-        if 0==comm.rank:
-            print(f"Counter: {counter}; Time: {imaging_time}; Max fluence: {max_fluence}")
-
-
         p0 = dl.project(mu_a*fluence, Vh_p0, solver_type='cg', preconditioner_type='jacobi')
         p0.rename("p0", "p0")
         
         p0_np = resampler_p0(p0)
+        toc = timer()
+        tictoc = toc - tic
+        if 0==comm.rank:
+            print(f"Counter: {counter}; Time: {imaging_time}; Max fluence: {max_fluence}; Elapsed time: {tictoc:.6f}sec")
+
         
         if 0 == comm.rank:
-            fname = "p0/p0_{%04d}".format(counter)
+            fname = f"p0/p0_{counter:05d}.h5"
             with h5py.File(fname, "w") as fid:
                 d_set = fid.create_dataset("p0", data=p0_np, compression="lzf")
                 h = (fov[:,1] - fov[:,0])/np.array(N)
