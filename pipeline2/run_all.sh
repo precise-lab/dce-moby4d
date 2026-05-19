@@ -18,7 +18,7 @@ if [ ! -d indicator ]; then
 fi
 
 for P in $(seq 0 199); do
-    CMD="mpirun -n 32 python -u run_optical_model.py -p $P"
+    CMD="mpirun -n 32 python -u run_optical_model2.py -p $P"
 
     # Print the command before executing
     echo "$CMD"

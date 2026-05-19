@@ -69,13 +69,44 @@ class MeshMover():
 
         return imposed
 
+    def compute_displacement2(self, time, dx):
+
+        disp_DG0 = self.get_displacement(time, self.vDG0, n_smoothing_steps=3)
+
+        # lung, airways, liver, gal-bladder, spleen, kidney, st_wall, st_cnts, spine, rib
+        ids = [22, 23, 29, 30, 37, 34, 31, 32, 82]
+        # spine, femor
+        ids_still = [94, 88]
+
+        uh, vh = dl.TrialFunction(self.ref_Vh), dl.TestFunction(self.ref_Vh)
+
+        Aform = ( ufl.inner( ufl.sym(ufl.grad(uh)), ufl.sym(ufl.grad(vh)))*dx 
+                 + ufl.inner(ufl.div(uh), ufl.div(vh))*dx )
+        
+        disp = dl.Function(self.ref_Vh, name="Displacement")
+        bform = ufl.inner(disp, vh)*dl.Constant(10)*dx
+                 
+        for id in ids:
+            Aform += ufl.inner(uh, vh)*dl.Constant(10)*dx(id)
+            bform += ufl.inner(disp_DG0, vh)*dl.Constant(10)*dx(id)
+
+        for id in ids_still:
+            Aform += ufl.inner(uh, vh)*dl.Constant(10)*dx(id)
+
+        A, b = dl.assemble_system(Aform, bform)
+        solver = dl.PETScKrylovSolver("cg", "petsc_amg")
+
+        solver.solve(A, disp.vector(), b)
+
+        return disp
+
     def compute_displacement(self, time):
         imposed = self.get_imposed(time)
         disp_DG0 = self.get_displacement(time, self.vDG0, n_smoothing_steps=3)
 
         uh, vh = dl.TrialFunction(self.ref_Vh), dl.TestFunction(self.ref_Vh)
 
-        Aform = ( ufl.inner( ufl.grad(uh), ufl.grad(vh))*ufl.dx 
+        Aform = ( ufl.inner( ufl.sym(ufl.grad(uh)), ufl.sym(ufl.grad(vh)))*ufl.dx 
                  + ufl.inner(ufl.div(uh), ufl.div(vh))*ufl.dx
                  + ufl.inner(uh, vh)*dl.Constant(10)*imposed*ufl.dx )
         
@@ -133,6 +164,27 @@ class MeshMover():
     def move(self, time):
 
         d = self.compute_displacement(time)
+
+        if self.verbose:
+            d_np = np.abs( d.vector().gather_on_zero() )
+            d_np = np.reshape(d_np, (int(d_np.shape[0]/3), 3))
+            nd_np = np.sqrt(np.sum(d_np*d_np, axis=1))
+            if nd_np.size > 0:
+                print("-->",  np.max(nd_np), " ", np.max(d_np[:,0]), " ", np.max(d_np[:,1]), " ", np.max(d_np[:,2]))
+
+        self.mesh.coordinates()[:] = self.orig_coords
+        dl.ALE.move(self.mesh, d)
+
+        DG0 = dl.FunctionSpace(self.mesh, "DG", 0)
+        test = dl.TestFunction(DG0)
+        vol = dl.assemble(test*ufl.dx)
+        vol_np = vol.gather_on_zero()
+        if vol_np.size > 0:
+            print( np.min(vol_np), " ", np.max(vol_np) )
+
+    def move2(self, time, dx):
+
+        d = self.compute_displacement2(time, dx)
 
         if self.verbose:
             d_np = np.abs( d.vector().gather_on_zero() )

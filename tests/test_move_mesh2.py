@@ -40,46 +40,66 @@ if __name__ == "__main__":
         c_labels = dl.MeshFunction('size_t', mesh, geo_dim)
         fid.read(c_labels, "c_labels")
 
-    dx   = ufl.Measure("dx", domain = mesh, subdomain_data=c_labels, metadata={"quadrature_degree": 0})
+    dx   = ufl.Measure("dx", domain = mesh, subdomain_data=c_labels)
 
     mover = moby.MeshMover(mesh, args.disp, verbose=True)
 
     dt = mover.dt
-    nframes = 3 #mover.nframes
-    times = np.arange(0, dt*nframes - 0.5*dt, dt)
-    pos = np.zeros((nframes, 3))
+    nframes = 50 #mover.nframes
+    skip_frames = 5
+    times = np.arange(0, dt*nframes - 0.5*dt, skip_frames*dt)
+    pos = np.zeros((nframes//skip_frames, 3))
+    vols = np.zeros((nframes//skip_frames))
+
+    V = dl.FunctionSpace(mesh, "DG", 0)
+    labels_fun = dl.Function(V, name="labels")
+    dofmap = V.dofmap()
+    values = labels_fun.vector().get_local()
+    for cell in dl.cells(mesh):
+        dof = dofmap.cell_dofs(cell.index())[0]
+        values[dof] = c_labels[cell]
+
+    labels_fun.vector().set_local(values)
+    labels_fun.vector().apply("insert")
 
 
-    with dl.XDMFFile(comm, "out.xdmf") as fid:
+    with dl.XDMFFile(comm, "out-2.xdmf") as fid:
         fid.parameters["functions_share_mesh"] = True
         fid.parameters["rewrite_function_mesh"] = False
 
-        for i in np.arange(nframes):
+        for i in np.arange(0, nframes, skip_frames):
             t = i*dt
             if comm.rank == 0:
                 print(f"Time {t} s")
             
-            imposed = mover.get_imposed(t)
-            disp   = mover.compute_displacement(t)
-            fid.write(imposed, t)
+            disp   = mover.compute_displacement2(t, dx)
             fid.write(disp, t)
+            fid.write(labels_fun, t)
 
-
-            vol = dl.assemble(dl.Constant(1.)*dx(97)+dl.Constant(1.)*dx(98))
+            volume_local = ufl.det( ufl.Identity(3) + ufl.grad(disp))
+            vol = dl.assemble(volume_local*dx(97)+volume_local*dx(98))
+            vols[i//skip_frames] = vol
             for jcoor in range(3):
                 ej_np = np.zeros(3)
                 ej_np[jcoor] = 1
                 ej = dl.Constant(tuple(ej_np[:]))
-                pos[i,jcoor] = dl.assemble(ufl.inner(ej,disp)*dx(97) + ufl.inner(ej,disp)*dx(98))/vol
+                pos[i//skip_frames,jcoor] = dl.assemble(ufl.inner(ej,disp)*dx(97) + ufl.inner(ej,disp)*dx(98))/vol
 
     if comm.rank == 0:
+        plt.figure()
         plt.plot(times, pos[:,0]-pos[0,0], label = 'X-pos')
         plt.plot(times, pos[:,1]-pos[0,1], label = 'Y-pos')
         plt.plot(times, pos[:,2]-pos[0,2], label = 'Z-pos')
         plt.legend()
-        plt.show()
+        plt.savefig("tumor_displacement.png")
 
-    np.savetxt('lesion_displacement.txt', np.hstack([times.reshape(nframes,1), pos]) )
+        plt.figure()
+        plt.plot(times, vols)
+        plt.savefig("tumor_volumes.png")
+
+    np.savetxt('lesion_displacement_vol.txt', np.hstack([times.reshape(nframes//skip_frames,1),
+                                                         pos,
+                                                         vols.reshape(nframes//skip_frames,1)]) )
 
 
 
