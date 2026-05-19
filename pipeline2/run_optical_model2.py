@@ -183,7 +183,7 @@ if __name__ == "__main__":
          
         bform = ufl.inner(dl.Constant(0.5)*illumination, phi_test)*ds_lumped
 
-        dl.assemble_system(Aform, bform, tensor_A = A, tensor_b = b)
+        dl.assemble_system(Aform, bform, A_tensor = A, b_tensor = b)
         Asolver.set_operator(A)
         Asolver.solve(fluence.vector(), b)
 
