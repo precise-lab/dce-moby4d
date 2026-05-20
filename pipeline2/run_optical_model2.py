@@ -1,5 +1,8 @@
 import dolfin as dl
-import ufl
+try:
+    import ufl_legacy as ufl
+except:
+    import ufl
 import numpy as np
 import pyvista as pv
 import h5py

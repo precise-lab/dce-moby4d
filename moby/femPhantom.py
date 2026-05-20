@@ -1,5 +1,8 @@
 import dolfin as dl
-import ufl
+try:
+    import ufl_legacy as ufl
+except:
+    import ufl
 import csv
 from .tissue_composition import TissueComposition
 from .pkModel import PKModel
