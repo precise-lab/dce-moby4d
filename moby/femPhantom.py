@@ -3,6 +3,7 @@ try:
     import ufl_legacy as ufl
 except:
     import ufl
+import hippylib as hp
 import csv
 from .tissue_composition import TissueComposition
 from .pkModel import PKModel
@@ -53,7 +54,7 @@ class FEMPhantom:
         out = dl.Function(self.Vh_CG1, name='Saturation')
         
         A, b = dl.assemble_system(varf, rhs, [])
-        Asolver = dl.PETScKrylovSolver(A.mpi_comm(), "cg", "hypre_amg")
+        Asolver = hp.PETScKrylovSolver(A.mpi_comm(), "cg", "hypre_amg")
         Asolver.parameters["error_on_nonconvergence"] = False
         Asolver.solve(out.vector(), b)
         reason = Asolver.ksp().getConvergedReason()
