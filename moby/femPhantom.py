@@ -55,6 +55,7 @@ class FEMPhantom:
         
         A, b = dl.assemble_system(varf, rhs, [])
         Asolver = hp.PETScKrylovSolver(A.mpi_comm(), "cg", "hypre_amg")
+        Asolver.set_operator(A)
         Asolver.parameters["error_on_nonconvergence"] = False
         Asolver.solve(out.vector(), b)
         reason = Asolver.ksp().getConvergedReason()
