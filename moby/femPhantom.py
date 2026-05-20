@@ -41,7 +41,7 @@ class FEMPhantom:
     def compute_oxygen_saturation(self, tissue_oxygen_saturation: dict):
 
         labels = self.tissueComposition.tissue2label
-        sO2diff = dl.Constant(1e-6)
+        sO2diff = dl.Constant(1e-4)
         uh, vh = dl.TrialFunction(self.Vh_CG1), dl.TestFunction(self.Vh_CG1)
         varf = sO2diff* ufl.inner(ufl.grad(uh), ufl.grad(vh))*self.dx
         rhs = dl.Constant(0.)*vh*self.dx
@@ -53,9 +53,17 @@ class FEMPhantom:
         out = dl.Function(self.Vh_CG1, name='Saturation')
         
         A, b = dl.assemble_system(varf, rhs, [])
+        Asolver = dl.PETScKrylovSolver(A.mpi_comm(), "cg", "hypre_amg")
+        Asolver.parameters["error_on_nonconvergence"] = False
+        Asolver.solve(out.vector(), b)
+        reason = Asolver.ksp().getConvergedReason()
         
-        dl.solve(A, out.vector(), b, 'cg', 'hypre_amg')
-
+        if reason < 0:
+            if A.mpi_comm().rank == 0:
+                print(f"femPhantom.compute_oxygen_saturation: Solver failed to converge! PETSc Reason code: {reason}")
+            sys.exit( reason )
+            A.mpi_comm().Abort( reason  )
+            
         return out
 
     def compute_mu_sp(self, wavelength):
