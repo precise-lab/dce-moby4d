@@ -6,7 +6,7 @@ except:
 import numpy as np
 import h5py
 
-
+import inspect
 import argparse
 
 from timeit import default_timer as timer
@@ -163,6 +163,7 @@ if __name__ == "__main__":
     A = dl.PETScMatrix()
     b = dl.PETScVector()
     Asolver = hp.PETScKrylovSolver(comm, "cg", "hypre_amg")
+    Asolver.parameters["error_on_nonconvergence"] = False
 
     # Preallocate solution vector, rhs, and lhs matrix for computing p0
     p0 = dl.Function(Vh_p0, name="p0")
@@ -188,6 +189,14 @@ if __name__ == "__main__":
         dl.assemble_system(Aform, bform, A_tensor = A, b_tensor = b)
         Asolver.set_operator(A)
         Asolver.solve(fluence.vector(), b)
+        reason = Asolver.ksp().getConvergedReason()
+        
+        if reason < 0:
+            if comm.rank == 0:
+                print(f"{__file__}:{inspect.currentframe().f_lineno}: Solver failed to converge! PETSc Reason code: {reason}")
+                fid.close()
+            sys.exit( reason )
+            comm.Abort( reason  )
 
         dl.assemble( fluence*mu_a*p0_test*ufl.dx, tensor=p0_rhs)
         Mp0_solver.solve(p0.vector(), p0_rhs)
